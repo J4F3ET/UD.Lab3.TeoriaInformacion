@@ -170,7 +170,40 @@ Codificado con k=16 en el WAV y k=8 en el MP3:
 
 **Interpretación:** el patrón se repite igual que con la imagen — el MP3 ya viene comprimido (con pérdida, además) por su propio formato, así que casi no queda redundancia de bajo nivel que un códec de entropía de orden cero pueda explotar. El WAV/PCM sí tiene redundancia real (11,94 % de ahorro), pero **mucho menos que la imagen BMP** (41,64 %). Esto es coherente con la limitación de "modelo de orden cero" que ya señalaba la documentación técnica: el habla tiene fuerte correlación entre muestras consecutivas (la onda no salta bruscamente de una muestra a la siguiente), pero Huffman por símbolo no aprovecha esa correlación temporal — solo la desigualdad en las frecuencias de amplitud. Un codificador diferencial (guardar la diferencia entre muestras consecutivas antes de Huffman) explotaría mejor esta redundancia, y queda anotado como mejora futura.
 
-## Comparación entre las cuatro fuentes probadas
+## Quinta corrida: video real (screen recording), comprimido y sin comprimir
+Fuente: una grabación de pantalla real (28,1 s, 1280×720, 60 fps, contenido propio — no descargado ni sintético). Se probó igual que las anteriores: el **MP4** original (1 444 096 B, ya comprimido) y una versión **RGB cruda** (sin contenedor, un `.tofile()` de los frames como arreglo NumPy `(N, H, W, 3)` uint8) extraída con OpenCV.
+
+**Ajuste de escala, declarado:** el enunciado pide 5 minutos de video, pero el decodificador de este códec es Python puro para el paso de Huffman (documentado como límite conocido: "~1 µs por símbolo"). Un video de 5 minutos a resolución completa sin comprimir pesa varios GB, y decodificarlo con este códec tomaría horas. Por eso se usó la grabación disponible (28,1 s) y, para la versión cruda, se redujo la resolución a 160×90 (72 921 600 B, manteniendo los 1688 frames completos, es decir toda la duración temporal real). El MP4 se probó a su resolución original (1280×720) porque ahí no hay que decodificar frame a frame — se mide directamente sobre los bytes comprimidos, igual que con el JPEG y el MP3.
+
+Barrido de k sobre el RGB crudo (`examples/video_rgb/video_rgb.json`) — a diferencia de imagen y audio, aquí la redundancia **sigue creciendo hasta k=512**:
+
+| k (bits) | H (bits/símb.) | H/k | Razón estimada |
+|---|---|---|---|
+| 8 | 5,100 | 0,638 | 1,560 |
+| 16 | 6,572 | 0,411 | 2,416 |
+| 32 | 7,248 | 0,226 | 4,357 |
+| 64 | 7,335 | 0,115 | 8,535 |
+| 128 | 7,465 | 0,058 | 16,308 |
+| 256 | 7,456 | 0,029 | 29,888 |
+| **512** | **8,119** | **0,016** | **43,578** (mejor) |
+| 1024 | 9,642 | 0,009 | 33,715 |
+| 2048 | 11,134 | 0,005 | 15,328 |
+| 4096 | 12,477 | 0,003 | 6,584 |
+
+Codificado con k=512 en el RGB y k=8 en el MP4:
+
+| Métrica | MP4 (k=8) | RGB crudo (k=512) |
+|---|---|---|
+| Tamaño original | 1 444 096 B | 72 921 600 B |
+| Tamaño codificado | 1 417 996 B | 1 673 857 B |
+| **Razón de compresión** | 1,0184 | **43,565** |
+| **Ahorro** | 1,81 % | **97,70 %** |
+| Eficiencia η | 0,9968 | 0,9955 |
+| Verificación SHA-256 | ✅ | ✅ |
+
+**Interpretación:** este es, por lejos, el resultado con más redundancia explotada de las cuatro fuentes. Tiene sentido: un screen recording pasa la mayor parte del tiempo con grandes zonas de pantalla sin cambios entre un frame y el siguiente, así que muchos símbolos de 512 bits (64 bytes = ~21,3 píxeles RGB) se repiten idénticos miles de veces — es la misma razón por la que el ejemplo de la fuente sintética "estructurada" del proyecto original llegaba a 150:1. También confirma, con datos reales, por qué la **k óptima depende enteramente de la fuente**: 512 para este video, 32 para la imagen fija, 16 para audio y texto. Un sistema que solo probara k pequeñas se quedaría muy por debajo de la compresión real posible. La gráfica "durante" muestra además un salto claro alrededor del bloque 37 (H y L suben de golpe): corresponde al punto de la grabación donde cambia el contenido en pantalla, y el aumento de $D_{KL}(\text{bloque}\|\text{global})$ ahí mismo es justamente la métrica que el enunciado pide para detectar no estacionariedad.
+
+## Comparación entre las cinco fuentes probadas
 
 | Fuente | Tamaño | k elegido | H (bits/símb.) | Razón | Ahorro |
 |---|---|---|---|---|---|
@@ -179,8 +212,10 @@ Codificado con k=16 en el WAV y k=8 en el MP3:
 | Texto (apuntes reales) | 0,44 MB | 16 | 10,442 | 1,428 | 29,96 % |
 | Audio MP3 (ya comprimido) | 0,79 MB | 8 | 7,964 | 1,002 | 0,17 % |
 | Audio WAV (PCM crudo) | 4,72 MB | 16 | 13,628 | 1,136 | 11,94 % |
+| Video MP4 (ya comprimido) | 1,44 MB | 8 | 7,826 | 1,018 | 1,81 % |
+| Video RGB (crudo, 160×90) | 69,56 MB | 512 | 8,119 | 43,565 | 97,70 % |
 
-Las cinco reconstrucciones (incluida esta) fueron bit-exactas (SHA-256). El patrón confirma la tesis central del diseño: **la redundancia que el códec puede explotar depende del formato de entrada y de qué tan correlacionados están los símbolos vecinos, no solo del tipo de contenido** — un JPEG/MP3 y su versión cruda son el mismo contenido, pero solo la versión cruda tiene redundancia sin explotar; y entre las fuentes crudas, la imagen (redundancia espacial en 2D) comprime mucho mejor que el audio de voz (redundancia principalmente temporal, que este códec de orden cero no captura tan bien).
+Las siete reconstrucciones fueron bit-exactas (SHA-256). El patrón se sostiene en las tres fuentes con formato comprimido vs. crudo (imagen, audio, video): el formato ya comprimido no deja casi nada, y el crudo sí — pero cuánto depende de qué tipo de redundancia tiene la fuente (espacial 2D en imagen, temporal en audio, espacial+temporal combinadas en video) y de qué tan grande hay que hacer el símbolo para capturarla.
 
 ## Resultados experimentales de referencia
 Con una fuente estructurada de 2 MB (16 bloques de 256 B repetidos con ruido):
@@ -204,7 +239,7 @@ Con `--perdida 3` y k = 8: razón 3,44:1, PSNR 38,4 dB. Todas las decodificacion
 - [ ] Conseguir las páginas 2 a 7 del enunciado y verificar que nada aquí las contradiga.
 - [x] Imagen (JPEG y BMP) y texto real corridos y verificados — ver secciones de arriba.
 - [x] Audio real (voz, 98 s, MP3 y WAV) corrido y verificado — ver sección de arriba.
-- [ ] Ejecutar el códec sobre video (5 min) real; es la única fuente que falta de las 4 pedidas.
+- [x] Video real (screen recording, 28,1 s, MP4 y RGB crudo) corrido y verificado — ver sección de arriba. Duración y resolución reducidas frente a los 5 min pedidos, por el límite de rendimiento del decodificador en Python puro (declarado en esa sección); las 4 fuentes del enunciado (imagen, audio, texto, video) ya están cubiertas.
 - [ ] Calcular explícitamente $I(X;Y)$ entre la fuente original y la reconstruida (hoy el código mide KL y verificación SHA-256, pero no reporta $I(X;Y)$ como tal).
 - [ ] Sustituir/complementar la selección de modo por regla fija con un modelo simple (árbol de decisión, por ejemplo) que recomiende k y el tipo de codificación — para cubrir el punto de "IA en el proceso".
 - [ ] Interpretar los resultados en el contexto de 5G/6G (relación entre k, latencia y ancho de banda).

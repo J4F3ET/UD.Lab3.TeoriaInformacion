@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# fuentes generadas y archivos codificados de prueba (pueden ser grandes)
+data/*
+!data/.gitkeep
+reports/*
+!reports/.gitkeep
+*.tic
+*.bin
+
+.DS_Store

@@ -82,7 +82,7 @@ python src/tic_codec.py codificar data/prueba.bin reports/prueba.tic -k 8 --perd
 python src/tic_codec.py decodificar reports/prueba.tic reports/salida.bin
 ```
 
-Requisitos: `numpy` (obligatorio), `matplotlib` (solo si se usa `--grafica`).
+Requisitos: `numpy` (obligatorio), `matplotlib` (solo si se usa `--grafica`), `soundfile` (solo para preparar fuentes de audio — decodificar/convertir formatos antes de pasárselas al códec, no lo usa `tic_codec.py` directamente).
 
 ## Primera corrida real: imagen JPEG
 Se corrió el códec sobre una foto real (JPEG, 1 486 484 bytes, una de las capturas del tablero de clase). Resultados con k = 8 (`examples/imagen_jpeg/imagen_prueba.json`, gráfica en `imagen_prueba.png`):
@@ -146,15 +146,41 @@ Codificado con k = 16 (mejor razón del barrido):
 
 **Interpretación:** a diferencia de la imagen, el texto es no uniforme incluso a nivel de un solo byte (k=8: H=5,78 de 8 bits posibles, porque unas letras y símbolos son mucho más frecuentes que otros — el mismo fenómeno que el ejemplo de clase de VLC/Huffman, aquí a escala de un archivo real). El perfil de entropía por posición de bit con k=16 muestra algo revelador: las posiciones 0 y 8 (el bit más significativo de cada uno de los dos bytes del símbolo) tienen entropía casi nula, porque el texto es ASCII y ese bit casi siempre vale 0 — es exactamente el tipo de "bit constante/casi constante" que el enunciado pide identificar, aunque aquí no llega a ser perfectamente constante (por los acentos y símbolos especiales en UTF-8) y por eso no se cuenta como bit redundante eliminado.
 
-## Comparación entre las tres fuentes probadas
+## Cuarta corrida: audio real (voz), comprimido y sin comprimir
+Fuente: 98,2 segundos de narración de voz real (grabaciones de un manual de usuario de otro proyecto, concatenadas — no es audio sintético), mono a 24 000 Hz. Igual que con la imagen, se probó la misma grabación en dos formatos: **MP3** (786 126 B, ya comprimido con pérdida por el propio códec de audio) y **WAV/PCM 16 bits** (4 715 180 B, sin comprimir), decodificado con `soundfile` (libsndfile) y guardado con `sf.write`.
+
+Barrido de k sobre el WAV (`examples/audio_wav/audio_wav.json`):
+
+| k (bits) | H (bits/símb.) | H/k | Razón estimada |
+|---|---|---|---|
+| 8 | 7,298 | 0,912 | 1,093 |
+| **16** | 13,628 | 0,852 | **1,136** (mejor) |
+| 32+ | — | — | ~1,000 (sin ganancia) |
+
+Codificado con k=16 en el WAV y k=8 en el MP3:
+
+| Métrica | MP3 (k=8) | WAV/PCM (k=16) |
+|---|---|---|
+| Tamaño original | 786 126 B | 4 715 180 B |
+| Tamaño codificado | 784 769 B | 4 152 261 B |
+| **Razón de compresión** | 1,0017 | **1,1356** |
+| **Ahorro** | 0,17 % | **11,94 %** |
+| Eficiencia η | 0,9982 | 0,9979 |
+| Verificación SHA-256 | ✅ | ✅ |
+
+**Interpretación:** el patrón se repite igual que con la imagen — el MP3 ya viene comprimido (con pérdida, además) por su propio formato, así que casi no queda redundancia de bajo nivel que un códec de entropía de orden cero pueda explotar. El WAV/PCM sí tiene redundancia real (11,94 % de ahorro), pero **mucho menos que la imagen BMP** (41,64 %). Esto es coherente con la limitación de "modelo de orden cero" que ya señalaba la documentación técnica: el habla tiene fuerte correlación entre muestras consecutivas (la onda no salta bruscamente de una muestra a la siguiente), pero Huffman por símbolo no aprovecha esa correlación temporal — solo la desigualdad en las frecuencias de amplitud. Un codificador diferencial (guardar la diferencia entre muestras consecutivas antes de Huffman) explotaría mejor esta redundancia, y queda anotado como mejora futura.
+
+## Comparación entre las cuatro fuentes probadas
 
 | Fuente | Tamaño | k elegido | H (bits/símb.) | Razón | Ahorro |
 |---|---|---|---|---|---|
 | Imagen JPEG (ya comprimida) | 1,49 MB | 8 | 7,948 | 1,002 | 0,22 % |
 | Imagen BMP (píxeles crudos) | 36,58 MB | 32 | 15,533 | 1,714 | 41,64 % |
 | Texto (apuntes reales) | 0,44 MB | 16 | 10,442 | 1,428 | 29,96 % |
+| Audio MP3 (ya comprimido) | 0,79 MB | 8 | 7,964 | 1,002 | 0,17 % |
+| Audio WAV (PCM crudo) | 4,72 MB | 16 | 13,628 | 1,136 | 11,94 % |
 
-Las tres reconstrucciones fueron bit-exactas (SHA-256). El patrón confirma la tesis central del diseño: **la redundancia que el códec puede explotar depende del formato de entrada, no del tipo de contenido en sí** — un JPEG y un BMP son la misma foto, pero solo el segundo tiene redundancia sin explotar porque el primero ya la eliminó con su propia compresión.
+Las cinco reconstrucciones (incluida esta) fueron bit-exactas (SHA-256). El patrón confirma la tesis central del diseño: **la redundancia que el códec puede explotar depende del formato de entrada y de qué tan correlacionados están los símbolos vecinos, no solo del tipo de contenido** — un JPEG/MP3 y su versión cruda son el mismo contenido, pero solo la versión cruda tiene redundancia sin explotar; y entre las fuentes crudas, la imagen (redundancia espacial en 2D) comprime mucho mejor que el audio de voz (redundancia principalmente temporal, que este códec de orden cero no captura tan bien).
 
 ## Resultados experimentales de referencia
 Con una fuente estructurada de 2 MB (16 bloques de 256 B repetidos con ruido):
@@ -177,7 +203,8 @@ Con `--perdida 3` y k = 8: razón 3,44:1, PSNR 38,4 dB. Todas las decodificacion
 - [ ] Confirmar con el profesor el significado exacto de "N bits/símbolo" y el alcance esperado de "IA".
 - [ ] Conseguir las páginas 2 a 7 del enunciado y verificar que nada aquí las contradiga.
 - [x] Imagen (JPEG y BMP) y texto real corridos y verificados — ver secciones de arriba.
-- [ ] Ejecutar el códec sobre audio (1-2 min) y video (5 min) reales; solo faltan estas dos de las 4 fuentes pedidas.
+- [x] Audio real (voz, 98 s, MP3 y WAV) corrido y verificado — ver sección de arriba.
+- [ ] Ejecutar el códec sobre video (5 min) real; es la única fuente que falta de las 4 pedidas.
 - [ ] Calcular explícitamente $I(X;Y)$ entre la fuente original y la reconstruida (hoy el código mide KL y verificación SHA-256, pero no reporta $I(X;Y)$ como tal).
 - [ ] Sustituir/complementar la selección de modo por regla fija con un modelo simple (árbol de decisión, por ejemplo) que recomiende k y el tipo de codificación — para cubrir el punto de "IA en el proceso".
 - [ ] Interpretar los resultados en el contexto de 5G/6G (relación entre k, latencia y ancho de banda).

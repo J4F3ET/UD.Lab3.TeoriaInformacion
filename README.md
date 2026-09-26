@@ -107,6 +107,39 @@ Se codificó con k = 32 (el mejor candidato del barrido):
 
 **Interpretación:** al trabajar sobre los píxeles crudos (sin la compresión que ya aplica el formato JPEG), el códec sí encuentra y elimina redundancia real — 41,6 % de ahorro con k=32, symbol de 4 bytes (aprox. 1,33 píxeles RGB), que captura bien la correlación espacial entre píxeles vecinos (zonas planas del tablero blanco, la pared de ladrillo repetitiva). Con k=64 el ahorro es parecido (una razón estimada de 1,705); con k≥128 el alfabeto de símbolos crece más rápido que las repeticiones observables en una sola imagen de este tamaño, y deja de haber ganancia. Esto confirma la regla de adaptabilidad propuesta: **para imagen conviene una k intermedia (32-64), no la más grande del catálogo**, algo que solo se puede saber corriendo el barrido sobre cada fuente.
 
+## Tercera corrida: texto real (apuntes de clase)
+Fuente: 125 archivos `.md` de apuntes de universidad concatenados en un solo archivo (435 588 bytes de texto real en español, con Markdown y LaTeX — no es texto sintético). Barrido de k (`examples/texto/texto_prueba.json`, gráfica en `texto_prueba.png`):
+
+| k (bits) | H (bits/símb.) | H/k | Razón estimada | Estructura |
+|---|---|---|---|---|
+| **8** | 5,778 | 0,722 | 1,378 | no uniforme (alta redundancia) |
+| **16** | 10,442 | 0,653 | **1,429** | no uniforme (alta redundancia) |
+| 32 | 14,366 | 0,449 | 1,000 | no uniforme, pero ya sin ganancia (alfabeto crece más rápido que las repeticiones) |
+| 64+ | — | — | ~1,000 | casi todos los símbolos únicos |
+
+Codificado con k = 16 (mejor razón del barrido):
+
+| Métrica | Valor |
+|---|---|
+| Tamaño original | 435 588 B |
+| Tamaño codificado | 305 075 B |
+| **Razón de compresión** | **1,4278** |
+| **Ahorro** | **29,96 %** |
+| Eficiencia η | 0,9973 |
+| Verificación SHA-256 / diff | ✅ idéntico byte a byte |
+
+**Interpretación:** a diferencia de la imagen, el texto es no uniforme incluso a nivel de un solo byte (k=8: H=5,78 de 8 bits posibles, porque unas letras y símbolos son mucho más frecuentes que otros — el mismo fenómeno que el ejemplo de clase de VLC/Huffman, aquí a escala de un archivo real). El perfil de entropía por posición de bit con k=16 muestra algo revelador: las posiciones 0 y 8 (el bit más significativo de cada uno de los dos bytes del símbolo) tienen entropía casi nula, porque el texto es ASCII y ese bit casi siempre vale 0 — es exactamente el tipo de "bit constante/casi constante" que el enunciado pide identificar, aunque aquí no llega a ser perfectamente constante (por los acentos y símbolos especiales en UTF-8) y por eso no se cuenta como bit redundante eliminado.
+
+## Comparación entre las tres fuentes probadas
+
+| Fuente | Tamaño | k elegido | H (bits/símb.) | Razón | Ahorro |
+|---|---|---|---|---|---|
+| Imagen JPEG (ya comprimida) | 1,49 MB | 8 | 7,948 | 1,002 | 0,22 % |
+| Imagen BMP (píxeles crudos) | 36,58 MB | 32 | 15,533 | 1,714 | 41,64 % |
+| Texto (apuntes reales) | 0,44 MB | 16 | 10,442 | 1,428 | 29,96 % |
+
+Las tres reconstrucciones fueron bit-exactas (SHA-256). El patrón confirma la tesis central del diseño: **la redundancia que el códec puede explotar depende del formato de entrada, no del tipo de contenido en sí** — un JPEG y un BMP son la misma foto, pero solo el segundo tiene redundancia sin explotar porque el primero ya la eliminó con su propia compresión.
+
 ## Resultados experimentales de referencia
 Con una fuente estructurada de 2 MB (16 bloques de 256 B repetidos con ruido):
 
@@ -127,7 +160,8 @@ Con `--perdida 3` y k = 8: razón 3,44:1, PSNR 38,4 dB. Todas las decodificacion
 ## Próximos pasos
 - [ ] Confirmar con el profesor el significado exacto de "N bits/símbolo" y el alcance esperado de "IA".
 - [ ] Conseguir las páginas 2 a 7 del enunciado y verificar que nada aquí las contradiga.
-- [ ] Ejecutar el códec sobre las 4 fuentes reales pedidas (audio 1-2 min, video 5 min, texto, imágenes), no solo sobre fuentes sintéticas.
+- [x] Imagen (JPEG y BMP) y texto real corridos y verificados — ver secciones de arriba.
+- [ ] Ejecutar el códec sobre audio (1-2 min) y video (5 min) reales; solo faltan estas dos de las 4 fuentes pedidas.
 - [ ] Calcular explícitamente $I(X;Y)$ entre la fuente original y la reconstruida (hoy el código mide KL y verificación SHA-256, pero no reporta $I(X;Y)$ como tal).
 - [ ] Sustituir/complementar la selección de modo por regla fija con un modelo simple (árbol de decisión, por ejemplo) que recomiende k y el tipo de codificación — para cubrir el punto de "IA en el proceso".
 - [ ] Interpretar los resultados en el contexto de 5G/6G (relación entre k, latencia y ancho de banda).

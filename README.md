@@ -18,6 +18,22 @@ Diseñar un sistema adaptable para N ∈ {8, 16, 32, 64, 128, 256, 512, 1024, 20
 ## Qué hay implementado: `src/tic_codec.py`
 Un códec sin pérdida (con pérdida opcional) que modela **cualquier archivo** (imagen, video, audio, texto — se trabaja sobre bytes crudos) como una fuente discreta de símbolos de k bits, con k adaptable de 8 a 2048 (probado hasta 32 888, cualquier múltiplo de 8). Solo depende de NumPy (Matplotlib es opcional, para graficar).
 
+### Organización del código (POO)
+El script está organizado en clases, una por responsabilidad, en vez de funciones sueltas que se pasan arrays entre sí:
+
+| Clase | Responsabilidad |
+|---|---|
+| `Fuente`, `Alfabeto`, `PerfilBits` | Segmentar el archivo en símbolos y calcular su estadística (alfabeto observado, perfil de entropía por bit) |
+| `Informacion` | Caja de herramientas: entropía, entropía binaria, KL, clasificación uniforme/no uniforme (solo `staticmethod`, sin estado) |
+| `MetricasAntes`, `MetricasDespues`, `ReporteBloque`, `ReporteCodificacion` | Dataclasses que reemplazan los diccionarios sueltos: imprimen, grafican y serializan a JSON |
+| `MascaraRedundancia` | Separa bits constantes (redundancia determinista) de variables |
+| `HuffmanCanonico` | Construcción, empaquetado y decodificación del código de Huffman |
+| `CabeceraTIC` | La cabecera del formato `.tic`, antes un `dict` sin tipo construido a mano en dos sitios distintos |
+| `CodecTIC` | Orquesta todo: `codificar()`, `decodificar()`, `barrido()` |
+| `GeneradorFuentes` | Fuentes sintéticas de prueba |
+
+Ningún símbolo individual se modela como objeto (con millones de filas eso mataría el rendimiento); las clases organizan el pipeline, y el cómputo pesado sigue vectorizado con NumPy exactamente igual que antes. El CLI, los nombres de comandos/flags y el formato del reporte JSON no cambiaron — se verificó por regresión corriendo los mismos casos de este README contra el código anterior, campo por campo, con resultado idéntico.
+
 ### Pipeline
 ```
 Bytes crudos → Segmentación (N × k/8) → Análisis ANTES (H, I, KL, perfil de bits)

@@ -68,6 +68,23 @@ python src/tic_codec.py decodificar reports/prueba.tic reports/salida.bin
 
 Requisitos: `numpy` (obligatorio), `matplotlib` (solo si se usa `--grafica`).
 
+## Primera corrida real: imagen JPEG
+Se corrió el códec sobre una foto real (JPEG, 1 486 484 bytes, una de las capturas del tablero de clase). Resultados con k = 8 (`examples/imagen_jpeg/imagen_prueba.json`, gráfica en `imagen_prueba.png`):
+
+| Métrica | Valor |
+|---|---|
+| H (bits/símbolo) | 7,948 |
+| Redundancia R = 1 − H/k | 0,0065 |
+| Razón de compresión | 1,0022 (prácticamente ninguna) |
+| Eficiencia η = H/L̄ | 0,9962 |
+| Verificación SHA-256 | ✅ idéntico byte a byte |
+
+**Interpretación:** el JPEG ya viene comprimido por su propio formato, así que su entropía por byte está casi al máximo (7,95 de 8 bits posibles) y casi no queda redundancia que el códec pueda explotar — razón de compresión ≈ 1. Esto confirma exactamente la limitación que ya advertía la documentación técnica ("Formatos ya comprimidos"): para medir la redundancia real de una imagen hay que trabajar con píxeles crudos (BMP/PNG sin comprimir o YUV), no con el archivo JPEG ya codificado. La reconstrucción sí fue perfecta (SHA-256 y comparación byte a byte coinciden), que es lo que garantiza la fiabilidad del sistema aunque no haya ganancia de tamaño en este caso.
+
+**Corrección aplicada:** `tic_codec.py` fallaba en Windows con `UnicodeEncodeError` (la consola usa cp1252 y el script imprime `─`/`‖`) — se agregó una reconfiguración de stdout/stderr a UTF-8 al inicio del script.
+
+**Próxima prueba pendiente:** repetir con una imagen sin comprimir (BMP/PNG/RAW) para ver una razón de compresión real, como pide el punto de "imagen" del enunciado.
+
 ## Resultados experimentales de referencia
 Con una fuente estructurada de 2 MB (16 bloques de 256 B repetidos con ruido):
 

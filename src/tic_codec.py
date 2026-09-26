@@ -25,6 +25,14 @@ Uso:
 import argparse, hashlib, heapq, json, math, struct, sys, time
 import numpy as np
 
+# La consola de Windows usa cp1252 por defecto, que no tiene los caracteres
+# Unicode que se imprimen (─, ‖, …). Sin esto, cualquier comando falla con
+# UnicodeEncodeError antes de mostrar resultados.
+if sys.platform == "win32":
+    for _s in (sys.stdout, sys.stderr):
+        if hasattr(_s, "reconfigure"):
+            _s.reconfigure(encoding="utf-8")
+
 MAGIC = b"TIC1"
 K_BASE = [8, 16, 32, 64, 128, 256, 512, 1024, 2048]
 K_EXT = [4096, 8192, 16384, 32768, 32888]

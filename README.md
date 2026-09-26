@@ -83,7 +83,29 @@ Se corrió el códec sobre una foto real (JPEG, 1 486 484 bytes, una de las capt
 
 **Corrección aplicada:** `tic_codec.py` fallaba en Windows con `UnicodeEncodeError` (la consola usa cp1252 y el script imprime `─`/`‖`) — se agregó una reconfiguración de stdout/stderr a UTF-8 al inicio del script.
 
-**Próxima prueba pendiente:** repetir con una imagen sin comprimir (BMP/PNG/RAW) para ver una razón de compresión real, como pide el punto de "imagen" del enunciado.
+## Segunda corrida: la misma imagen sin comprimir (BMP)
+La misma foto se convirtió a BMP (RGB crudo, sin compresión, con Pillow: `Image.open(...).save(..., "BMP")`) → 36 578 358 bytes, y se corrió un barrido de k antes de codificar (`examples/imagen_bmp/imagen_prueba_bmp.json`, gráfica en `imagen_prueba_bmp.png`):
+
+| k (bits) | H (bits/símb.) | H/k | Razón estimada | Estructura |
+|---|---|---|---|---|
+| 8 | 7,611 | 0,951 | 1,047 | levemente no uniforme |
+| 16 | 11,859 | 0,741 | 1,342 | no uniforme (alta redundancia) |
+| **32** | **15,533** | **0,485** | **1,714** | **no uniforme (alta redundancia)** |
+| 64 | 18,026 | 0,282 | 1,705 | no uniforme (alta redundancia) |
+| 128+ | — | — | ~1,0 | casi todos los símbolos únicos (muestra insuficiente) |
+
+Se codificó con k = 32 (el mejor candidato del barrido):
+
+| Métrica | JPEG (k=8) | BMP (k=32) |
+|---|---|---|
+| Tamaño original | 1 486 484 B | 36 578 358 B |
+| Tamaño codificado | 1 483 170 B | 21 347 192 B |
+| **Razón de compresión** | **1,0022** | **1,7135** |
+| **Ahorro** | 0,22 % | **41,64 %** |
+| Eficiencia η = H/L̄ | 0,9962 | 0,9982 |
+| Verificación SHA-256 | ✅ | ✅ |
+
+**Interpretación:** al trabajar sobre los píxeles crudos (sin la compresión que ya aplica el formato JPEG), el códec sí encuentra y elimina redundancia real — 41,6 % de ahorro con k=32, symbol de 4 bytes (aprox. 1,33 píxeles RGB), que captura bien la correlación espacial entre píxeles vecinos (zonas planas del tablero blanco, la pared de ladrillo repetitiva). Con k=64 el ahorro es parecido (una razón estimada de 1,705); con k≥128 el alfabeto de símbolos crece más rápido que las repeticiones observables en una sola imagen de este tamaño, y deja de haber ganancia. Esto confirma la regla de adaptabilidad propuesta: **para imagen conviene una k intermedia (32-64), no la más grande del catálogo**, algo que solo se puede saber corriendo el barrido sobre cada fuente.
 
 ## Resultados experimentales de referencia
 Con una fuente estructurada de 2 MB (16 bloques de 256 B repetidos con ruido):

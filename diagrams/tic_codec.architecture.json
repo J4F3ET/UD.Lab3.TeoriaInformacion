@@ -1,0 +1,318 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "tic_codec.py — Arquitectura de clases",
+    "output": "tic_codec.architecture.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "pipeline-codificar",
+        "label": "Pipeline de codificar()",
+        "focus": [
+          "cli",
+          "codec",
+          "fuente",
+          "alfabeto",
+          "perfil",
+          "mascara",
+          "huffman",
+          "cabecera",
+          "archivo"
+        ],
+        "note": "El camino que sigue CodecTIC.codificar(): de bytes crudos al archivo .tic."
+      },
+      {
+        "id": "analisis-fuente",
+        "label": "Análisis de la fuente",
+        "focus": [
+          "fuente",
+          "alfabeto",
+          "perfil",
+          "informacion"
+        ],
+        "note": "Las clases que miden H, I y KL antes de elegir cómo comprimir."
+      },
+      {
+        "id": "formato-tic",
+        "label": "Formato .tic",
+        "focus": [
+          "mascara",
+          "huffman",
+          "cabecera",
+          "archivo"
+        ],
+        "note": "Cómo se arma el archivo .tic a partir de la máscara de redundancia y el código de Huffman."
+      }
+    ]
+  },
+  "layout": {
+    "mode": "grid",
+    "cols": 7,
+    "cellW": 100,
+    "cellH": 125,
+    "gapX": 50,
+    "gapY": 18
+  },
+  "components": [
+    {
+      "id": "cli",
+      "type": "frontend",
+      "label": "CLI",
+      "sublabel": "argparse",
+      "row": 0,
+      "col": 0
+    },
+    {
+      "id": "generador",
+      "type": "external",
+      "label": "GeneradorFuentes",
+      "sublabel": "fuentes sintéticas",
+      "row": 2,
+      "col": 0
+    },
+    {
+      "id": "codec",
+      "type": "backend",
+      "label": "CodecTIC",
+      "sublabel": "orquesta el pipeline",
+      "row": 1,
+      "col": 1
+    },
+    {
+      "id": "fuente",
+      "type": "backend",
+      "label": "Fuente",
+      "sublabel": "bytes → símbolos",
+      "row": 1,
+      "col": 2
+    },
+    {
+      "id": "alfabeto",
+      "type": "backend",
+      "label": "Alfabeto",
+      "sublabel": "símbolos únicos",
+      "row": 0,
+      "col": 3
+    },
+    {
+      "id": "perfil",
+      "type": "backend",
+      "label": "PerfilBits",
+      "sublabel": "P(bit=1) por posición",
+      "row": 2,
+      "col": 3
+    },
+    {
+      "id": "informacion",
+      "type": "backend",
+      "label": "Informacion",
+      "sublabel": "H · entropía binaria · KL",
+      "tag": "sin estado",
+      "row": 1,
+      "col": 3
+    },
+    {
+      "id": "mascara",
+      "type": "backend",
+      "label": "MascaraRedundancia",
+      "sublabel": "constantes vs. variables",
+      "row": 2,
+      "col": 4
+    },
+    {
+      "id": "huffman",
+      "type": "backend",
+      "label": "HuffmanCanonico",
+      "sublabel": "códigos + empaquetado",
+      "row": 0,
+      "col": 5
+    },
+    {
+      "id": "cabecera",
+      "type": "database",
+      "label": "CabeceraTIC",
+      "sublabel": "cabecera JSON del .tic",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "id": "archivo",
+      "type": "database",
+      "label": "Archivo .tic",
+      "sublabel": "cabecera + 3 secciones",
+      "row": 1,
+      "col": 6
+    },
+    {
+      "id": "reporte",
+      "type": "frontend",
+      "label": "ReporteCodificacion",
+      "sublabel": "imprime · JSON · gráfica",
+      "row": 3,
+      "col": 1
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Análisis de la fuente",
+      "wraps": [
+        "fuente",
+        "alfabeto",
+        "perfil",
+        "informacion"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Codificación y formato .tic",
+      "wraps": [
+        "mascara",
+        "huffman",
+        "cabecera",
+        "archivo"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "cli-generador",
+      "from": "cli",
+      "to": "generador",
+      "label": "generar <tipo>",
+      "labelAt": [
+        100,
+        154
+      ]
+    },
+    {
+      "id": "cli-codec",
+      "from": "cli",
+      "to": "codec",
+      "label": "codificar / decodificar / barrido",
+      "variant": "emphasis",
+      "labelAt": [
+        235,
+        175
+      ]
+    },
+    {
+      "id": "codec-fuente",
+      "from": "codec",
+      "to": "fuente",
+      "label": "segmenta en símbolos",
+      "labelAt": [
+        390,
+        297
+      ]
+    },
+    {
+      "id": "fuente-alfabeto",
+      "from": "fuente",
+      "to": "alfabeto",
+      "label": "símbolos únicos"
+    },
+    {
+      "id": "fuente-perfil",
+      "from": "fuente",
+      "to": "perfil",
+      "label": "perfil de bits"
+    },
+    {
+      "id": "alfabeto-informacion",
+      "from": "alfabeto",
+      "to": "informacion",
+      "label": "frecuencias",
+      "labelAt": [
+        550,
+        154
+      ]
+    },
+    {
+      "id": "perfil-informacion",
+      "from": "perfil",
+      "to": "informacion",
+      "label": "entropía por bit"
+    },
+    {
+      "id": "perfil-mascara",
+      "from": "perfil",
+      "to": "mascara",
+      "label": "bits constantes",
+      "labelAt": [
+        625,
+        440
+      ]
+    },
+    {
+      "id": "alfabeto-huffman",
+      "from": "alfabeto",
+      "to": "huffman",
+      "label": "longitudes de código"
+    },
+    {
+      "id": "mascara-cabecera",
+      "from": "mascara",
+      "to": "cabecera",
+      "label": "máscara en hex",
+      "labelAt": [
+        775,
+        440
+      ]
+    },
+    {
+      "id": "huffman-cabecera",
+      "from": "huffman",
+      "to": "cabecera",
+      "label": "modo + tamaños",
+      "labelAt": [
+        850,
+        154
+      ]
+    },
+    {
+      "id": "cabecera-archivo",
+      "from": "cabecera",
+      "to": "archivo",
+      "label": "escribe secciones",
+      "variant": "emphasis"
+    },
+    {
+      "id": "codec-reporte",
+      "from": "codec",
+      "to": "reporte",
+      "label": "antes / durante / después",
+      "labelAt": [
+        190,
+        297
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Sin objetos por símbolo",
+      "items": [
+        "Fuente/Alfabeto/PerfilBits operan sobre arreglos NumPy completos",
+        "El cómputo pesado sigue vectorizado; las clases solo organizan el pipeline"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Selección controlada del modo",
+      "items": [
+        "MascaraRedundancia separa bits constantes de variables",
+        "CodecTIC compara Huffman vs. bitstrip y escribe el más chico"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Ciclo cerrado de verificación",
+      "items": [
+        "decodificar() relee el .tic que codificar() acaba de escribir",
+        "El SHA-256 original se compara contra el reconstruido"
+      ]
+    }
+  ]
+}

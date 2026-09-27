@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "tic_codec.py — Flujo antes / durante / después",
+    "output": "tic_codec.dataflow.html",
+    "quality_profile": "showcase",
+    "viewBox": [1080, 630],
+    "views": [
+      { "id": "camino-principal", "label": "Camino principal", "focus": ["bytes", "simbolos", "modo", "archivo", "decodificar"], "note": "De los bytes crudos al archivo .tic, y de vuelta a la verificación." },
+      { "id": "analisis-antes", "label": "Análisis ANTES", "focus": ["simbolos", "alfabeto", "perfil"], "note": "Lo que se mide sobre la fuente antes de elegir cómo comprimir." },
+      { "id": "seleccion-modo", "label": "Selección de modo", "focus": ["alfabeto", "perfil", "huffman", "modo"], "note": "Cómo se decide entre Huffman y bitstrip para esta fuente." }
+    ]
+  },
+  "stages": [
+    { "label": "Fuente" },
+    { "label": "Segmentación" },
+    { "label": "Análisis (antes)" },
+    { "label": "Codificación (durante)" },
+    { "label": "Formato .tic (después)" }
+  ],
+  "nodes": [
+    { "id": "bytes", "type": "external", "label": "Bytes crudos", "sublabel": "archivo original", "stage": 0, "row": 1 },
+    { "id": "simbolos", "type": "backend", "label": "Símbolos de k bits", "sublabel": "matriz N × k/8", "stage": 1, "row": 1 },
+    { "id": "alfabeto", "type": "backend", "label": "Alfabeto observado", "sublabel": "frecuencias por símbolo", "stage": 2, "row": 0 },
+    { "id": "perfil", "type": "backend", "label": "Perfil de bits", "sublabel": "H por posición", "stage": 2, "row": 2 },
+    { "id": "huffman", "type": "backend", "label": "Huffman canónico", "sublabel": "códigos + longitudes", "stage": 3, "row": 0 },
+    { "id": "modo", "type": "backend", "label": "Selección de modo", "sublabel": "Huffman vs. bitstrip", "stage": 3, "row": 1 },
+    { "id": "archivo", "type": "database", "label": "Archivo .tic", "sublabel": "cabecera + secciones", "stage": 4, "row": 0 },
+    { "id": "decodificar", "type": "backend", "label": "Decodificación", "sublabel": "relee el .tic", "stage": 4, "row": 2 },
+    { "id": "metricas", "type": "frontend", "label": "Métricas DESPUÉS", "sublabel": "razón · η · KL · SHA-256", "stage": 4, "row": 3 }
+  ],
+  "flows": [
+    { "id": "bytes-simbolos", "from": "bytes", "to": "simbolos", "label": "segmentación N × k/8", "variant": "emphasis", "route": "straight", "labelDy": -23 },
+    { "id": "simbolos-alfabeto", "from": "simbolos", "to": "alfabeto", "label": "símbolos únicos", "variant": "emphasis" },
+    { "id": "simbolos-perfil", "from": "simbolos", "to": "perfil", "label": "P(bit=1) por posición" },
+    { "id": "alfabeto-huffman", "from": "alfabeto", "to": "huffman", "label": "longitudes de código", "variant": "emphasis", "route": "straight", "labelDy": -23 },
+    { "id": "perfil-modo", "from": "perfil", "to": "modo", "label": "bits constantes → máscara" },
+    { "id": "huffman-modo", "from": "huffman", "to": "modo", "label": "tamaño estimado", "labelAt": [745, 200] },
+    { "id": "modo-archivo", "from": "modo", "to": "archivo", "label": "escribe cabecera + secciones", "variant": "emphasis", "labelAt": [860, 238] },
+    { "id": "archivo-decodificar", "from": "archivo", "to": "decodificar", "label": "lee el .tic", "labelDy": 24 },
+    { "id": "decodificar-metricas", "from": "decodificar", "to": "metricas", "label": "compara SHA-256, mide razón/η/KL", "variant": "emphasis", "labelAt": [870, 428] }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Antes", "items": ["Mide H y KL antes de elegir el modo", "El perfil detecta bits constantes"] },
+    { "dot": "emerald", "title": "Durante", "items": ["Huffman se calcula sobre las frecuencias", "Se compara Huffman vs. bitstrip"] },
+    { "dot": "violet", "title": "Después", "items": ["decodificar() relee el .tic escrito", "Se compara el SHA-256 y se reporta"] }
+  ]
+}

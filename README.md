@@ -34,6 +34,15 @@ El script está organizado en clases, una por responsabilidad, en vez de funcion
 
 Ningún símbolo individual se modela como objeto (con millones de filas eso mataría el rendimiento); las clases organizan el pipeline, y el cómputo pesado sigue vectorizado con NumPy exactamente igual que antes. El CLI, los nombres de comandos/flags y el formato del reporte JSON no cambiaron — se verificó por regresión corriendo los mismos casos de este README contra el código anterior, campo por campo, con resultado idéntico.
 
+### Diagramas
+
+Dos diagramas interactivos (HTML autocontenido, sin dependencias) documentan el diseño, generados con [Archify](https://github.com/tt-a1i/archify):
+
+- [`diagrams/tic_codec.architecture.html`](diagrams/tic_codec.architecture.html) — arquitectura de clases: cómo `CodecTIC` orquesta `Fuente`/`Alfabeto`/`PerfilBits`/`Informacion` (análisis) y `MascaraRedundancia`/`HuffmanCanonico`/`CabeceraTIC` (formato `.tic`).
+- [`diagrams/tic_codec.dataflow.html`](diagrams/tic_codec.dataflow.html) — flujo de datos antes/durante/después: de los bytes crudos al archivo `.tic` y de vuelta a la verificación por SHA-256.
+
+Cada uno incluye vistas guiadas (`Guided views`), leyenda, y modo claro/oscuro. Las especificaciones fuente (`.json`) y las capturas de verificación visual quedan también en `diagrams/`.
+
 ### Pipeline
 ```
 Bytes crudos → Segmentación (N × k/8) → Análisis ANTES (H, I, KL, perfil de bits)

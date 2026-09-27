@@ -1,11 +1,13 @@
 # Cerrar los 3 requisitos pendientes del enunciado del Lab 3: I(X;Y) explícito, componente de IA real, e interpretación 5G/6G
 
 **Date:** 2026-09-26
-**Status:** PLANNED
+**Status:** IN PROGRESS — Fase 1 completada (commit `cf1229f`, 2026-09-27); Fases 2 y 3 en pausa a pedido explícito del usuario
 **Bead(s):** none
 **Epic:** none
 **Chain:** `standalone-b98b0026` seq `1`
 **Context:** See `HANDOFF_standalone-b98b0026_lab3-tic-codec_2026-09-26.md` for session data, test results, and prior approaches.
+
+> **Actualización 2026-09-27:** Fase 1 ($I(X;Y)$) ejecutada y pusheada (`cf1229f`). El usuario pidió explícitamente detener aquí: primero va a estudiar todo el proyecto por su cuenta y definir él mismo el enfoque del componente de IA (Fase 2) antes de que se implemente nada; la interpretación 5G/6G (Fase 3) queda pospuesta sin fecha ("olvídalo por el momento"). **No iniciar las Fases 2 o 3 sin que el usuario las pida de nuevo explícitamente**, ni asumir que el diseño de la Fase 2 descrito abajo (árbol de decisión sobre fuentes sintéticas) sigue siendo lo que el usuario quiere — puede cambiar de opinión tras estudiar el proyecto.
 
 ---
 
@@ -34,7 +36,7 @@ El códec `tic_codec.py` está completo, refactorizado a POO, corrido sobre las 
 
 ## Plan
 
-### Phase 1: Información mutua $I(X;Y)$ explícita
+### Phase 1: Información mutua $I(X;Y)$ explícita — ✅ COMPLETADA (commit `cf1229f`, 2026-09-27)
 
 **Goal:** Agregar la métrica de información mutua entre la fuente original y la reconstruida que el enunciado pide explícitamente y que hoy falta.
 
@@ -51,7 +53,7 @@ El códec `tic_codec.py` está completo, refactorizado a POO, corrido sobre las 
 **Validates with:** `python src/tic_codec.py codificar ... --reporte` sobre el caso `--perdida 3 -k 8` ya documentado — verificar numéricamente que `I_XY <= H` (nunca puede ser mayor); confirmar que los 7 casos lossless siguen dando SHA-256 idéntico (ninguna regresión en la verificación de integridad).
 **Rollback:** revertir el campo `informacion_mutua`/`I_XY` en `MetricasDespues` y el método `informacion_mutua`; los 7 JSON de `examples/` vuelven a su versión anterior con `git checkout`.
 
-### Phase 2: Componente de IA real para selección de modo/k
+### Phase 2: Componente de IA real para selección de modo/k — ⏸ EN PAUSA a pedido del usuario (ver nota de estado arriba)
 
 **Goal:** Reemplazar (o complementar) la regla fija de comparación de tamaños Huffman-vs-bitstrip con un modelo entrenado real que recomiende k y modo, cubriendo el punto "use IA en algún punto del proceso" del enunciado con algo más defendible que una comparación de tamaños.
 
@@ -68,7 +70,7 @@ El códec `tic_codec.py` está completo, refactorizado a POO, corrido sobre las 
 **Validates with:** correr `--recomendar` sobre los 7 ejemplos reales curados y reportar honestamente si la recomendación coincidió con el k/modo óptimo real encontrado por `barrido()` (no se espera 100% — documentar la tasa de acierto tal cual salga, sin inflarla).
 **Rollback:** eliminar el flag `--recomendar`, la clase nueva y `src/modelo_recomendacion.json`; los comandos `codificar`/`decodificar`/`barrido` existentes no se tocan, por lo que no hay riesgo de regresión en ellos.
 
-### Phase 3: Interpretación explícita en contexto 5G/6G
+### Phase 3: Interpretación explícita en contexto 5G/6G — ⏸ EN PAUSA a pedido del usuario ("olvídalo por el momento")
 
 **Goal:** Agregar la sección interpretativa que conecta los números ya medidos (k, razón, ahorro, tiempos) con el trade-off de latencia vs. ancho de banda relevante en redes 5G/6G, cerrando el último punto puramente documental del enunciado.
 

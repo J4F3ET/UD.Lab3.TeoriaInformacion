@@ -392,10 +392,11 @@
     "tamano_estimado_bitstrip_B": 1444096,
     "H_flujo_codificado_bits_por_byte": 7.951285036451004,
     "KL_flujo_vs_uniforme_256": 0.04871496354899563,
+    "I_XY": 7.826130887105887,
     "verificacion_sha256": true,
     "sin_perdida_exacta": true,
-    "tiempo_codificacion_s": 3.771697998046875,
-    "tiempo_decodificacion_s": 4.183183670043945,
+    "tiempo_codificacion_s": 1.4978110790252686,
+    "tiempo_decodificacion_s": 2.0429768562316895,
     "KL_original_vs_reconstruido": 0.0
   }
 }

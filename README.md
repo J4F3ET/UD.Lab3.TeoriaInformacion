@@ -24,7 +24,7 @@ El script está organizado en clases, una por responsabilidad, en vez de funcion
 | Clase | Responsabilidad |
 |---|---|
 | `Fuente`, `Alfabeto`, `PerfilBits` | Segmentar el archivo en símbolos y calcular su estadística (alfabeto observado, perfil de entropía por bit) |
-| `Informacion` | Caja de herramientas: entropía, entropía binaria, KL, clasificación uniforme/no uniforme (solo `staticmethod`, sin estado) |
+| `Informacion` | Caja de herramientas: entropía, información mutua $I(X;Y)$, entropía binaria, KL, clasificación uniforme/no uniforme (solo `staticmethod`, sin estado) |
 | `MetricasAntes`, `MetricasDespues`, `ReporteBloque`, `ReporteCodificacion` | Dataclasses que reemplazan los diccionarios sueltos: imprimen, grafican y serializan a JSON |
 | `MascaraRedundancia` | Separa bits constantes (redundancia determinista) de variables |
 | `HuffmanCanonico` | Construcción, empaquetado y decodificación del código de Huffman |
@@ -67,7 +67,7 @@ Bytes crudos → Segmentación (N × k/8) → Análisis ANTES (H, I, KL, perfil 
 | Fuente uniforme o no uniforme | Clasificación automática por H/k y D_KL(P‖U); generador de fuentes sintéticas de ambos tipos |
 | Identificar bits redundantes | Perfil de entropía binaria por posición; se eliminan del diccionario las posiciones constantes |
 | Compresión controlada | Selección de modo por tamaño total estimado; `--perdida n` para cuantización explícita de LSB (con MSE/PSNR) |
-| Medir I, H, KL antes/durante/después | Tres grupos de métricas, reporte JSON y gráfica opcional |
+| Medir I, H, I(X;Y), KL antes/durante/después | Tres grupos de métricas, reporte JSON y gráfica opcional. `I_XY` se reporta siempre: sin pérdida es igual a H por definición (Y=X exacto); con `--perdida` se mide la información mutua real entre fuente y reconstrucción |
 
 **Pendiente de cubrir explícitamente en el código:** el punto de "uso de IA en el proceso" hoy es una selección de modo por regla fija (comparación de tamaños estimados), no un modelo entrenado — ver Próximos pasos.
 
@@ -236,7 +236,9 @@ Con una fuente estructurada de 2 MB (16 bloques de 256 B repetidos con ruido):
 | 256 | 65 536 | 144 | 7,041 | 0,0275 | 33,6 |
 | 2048 | 8 192 | 32 | 4,335 | 0,0021 | 150 (real) |
 
-Con `--perdida 3` y k = 8: razón 3,44:1, PSNR 38,4 dB. Todas las decodificaciones sin pérdida pasaron la verificación SHA-256.
+Con `--perdida 3` y k = 8 sobre una fuente sintética: razón 3,44:1, PSNR 38,4 dB (corrida anterior a agregar $I(X;Y)$, no reproducida aquí por no tener registrado el archivo de origen exacto). Todas las decodificaciones sin pérdida pasaron la verificación SHA-256.
+
+**Ejemplo real y reproducible con $I(X;Y)$** — `--perdida 3` y k = 8 sobre `data/imagen_prueba.bmp` (imagen real cruda, la misma de la sección de imagen más arriba): $H(X) = 7,611$ bits/símbolo, $I(X;Y) = 4,621$ bits/símbolo (estrictamente menor que H, como debe ser cuando la reconstrucción no es exacta), razón 1,7195:1, ahorro 41,84%, PSNR 35,67 dB. Reporte completo en [`examples/imagen_bmp_perdida3/imagen_bmp_perdida3.json`](examples/imagen_bmp_perdida3/imagen_bmp_perdida3.json). En los 7 casos sin pérdida documentados arriba, $I(X;Y) = H$ exactamente (columna `I_XY` de cada JSON), porque la reconstrucción es idéntica al original — no es un error de cálculo, es la definición de información mutua cuando $Y=X$.
 
 ## Supuestos declarados (por falta de las páginas 2-7 del enunciado)
 - **"N bits/símbolo"** se interpreta como la profundidad de codificación por símbolo de la fuente (cuántos bits representan cada símbolo antes de comprimir), igual que en el ejercicio de cuantificación PCM visto en clase.
@@ -249,7 +251,7 @@ Con `--perdida 3` y k = 8: razón 3,44:1, PSNR 38,4 dB. Todas las decodificacion
 - [x] Imagen (JPEG y BMP) y texto real corridos y verificados — ver secciones de arriba.
 - [x] Audio real (voz, 98 s, MP3 y WAV) corrido y verificado — ver sección de arriba.
 - [x] Video real (screen recording, 28,1 s, MP4 y RGB crudo) corrido y verificado — ver sección de arriba. Duración y resolución reducidas frente a los 5 min pedidos, por el límite de rendimiento del decodificador en Python puro (declarado en esa sección); las 4 fuentes del enunciado (imagen, audio, texto, video) ya están cubiertas.
-- [ ] Calcular explícitamente $I(X;Y)$ entre la fuente original y la reconstruida (hoy el código mide KL y verificación SHA-256, pero no reporta $I(X;Y)$ como tal).
+- [x] Calcular explícitamente $I(X;Y)$ entre la fuente original y la reconstruida — `Informacion.informacion_mutua()`, reportado como `I_XY` en todos los JSON (`= H` sin pérdida por definición; con `--perdida` se mide la información mutua real, ver ejemplo arriba).
 - [ ] Sustituir/complementar la selección de modo por regla fija con un modelo simple (árbol de decisión, por ejemplo) que recomiende k y el tipo de codificación — para cubrir el punto de "IA en el proceso".
 - [ ] Interpretar los resultados en el contexto de 5G/6G (relación entre k, latencia y ancho de banda).
 

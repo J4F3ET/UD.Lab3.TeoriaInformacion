@@ -31,7 +31,7 @@ vez de en funciones sueltas que se pasan arrays entre sí:
   Fuente              archivo → matriz de N símbolos de k bits
   Alfabeto            símbolos únicos observados, sus índices y frecuencias
   PerfilBits          P(bit=1) y entropía por posición de bit (detecta bits redundantes)
-  Informacion         caja de herramientas: entropía, KL, clasificación (solo staticmethods)
+  Informacion         caja de herramientas: entropía, información mutua I(X;Y), KL, clasificación (solo staticmethods)
   MetricasAntes       resultado del análisis "antes" (dataclass, serializable a dict/JSON)
   MascaraRedundancia  separa/junta las posiciones de bit constantes vs. variables
   HuffmanCanonico     construcción, empaquetado y decodificación del código de Huffman
@@ -159,6 +159,25 @@ class Informacion:
     def entropia(frecuencias: np.ndarray) -> float:
         p = frecuencias / frecuencias.sum()
         return float(-(p * np.log2(p)).sum())
+
+    @staticmethod
+    def informacion_mutua(indices_x: np.ndarray, indices_y: np.ndarray) -> float:
+        """I(X;Y) en bits entre dos flujos de símbolos emparejados fila a fila
+        (p. ej. fuente original vs. reconstruida tras una codificación con
+        pérdida). Construye la distribución conjunta de forma vectorizada -sin
+        iterar símbolo por símbolo, igual que el resto de la clase- y devuelve
+        Σ p(x,y) log2(p(x,y) / (p(x)·p(y)))."""
+        x = np.asarray(indices_x, dtype=np.int64)
+        y = np.asarray(indices_y, dtype=np.int64)
+        n = len(x)
+        Ux, Uy = int(x.max()) + 1, int(y.max()) + 1
+        clave = x * Uy + y
+        claves_unicas, cuentas = np.unique(clave, return_counts=True)
+        xu, yu = claves_unicas // Uy, claves_unicas % Uy
+        px = np.bincount(x, minlength=Ux) / n
+        py = np.bincount(y, minlength=Uy) / n
+        pxy = cuentas / n
+        return float((pxy * np.log2(pxy / (px[xu] * py[yu]))).sum())
 
     @staticmethod
     def entropia_binaria(p: np.ndarray) -> np.ndarray:
@@ -507,6 +526,7 @@ class MetricasDespues:
     tamano_estimado_bitstrip_B: int
     H_flujo_codificado_bits_por_byte: float
     KL_flujo_vs_uniforme_256: float
+    informacion_mutua_XY: float
     verificacion_sha256: bool
     sin_perdida_exacta: bool
     tiempo_codificacion_s: float
@@ -533,6 +553,7 @@ class MetricasDespues:
             "tamano_estimado_bitstrip_B": self.tamano_estimado_bitstrip_B,
             "H_flujo_codificado_bits_por_byte": self.H_flujo_codificado_bits_por_byte,
             "KL_flujo_vs_uniforme_256": self.KL_flujo_vs_uniforme_256,
+            "I_XY": self.informacion_mutua_XY,
             "verificacion_sha256": self.verificacion_sha256,
             "sin_perdida_exacta": self.sin_perdida_exacta,
             "tiempo_codificacion_s": self.tiempo_codificacion_s,
@@ -587,6 +608,9 @@ class ReporteCodificacion:
         print("\n[DESPUÉS]")
         for c, v in self.despues.a_dict().items():
             print(f"  {c:32} {f(v)}")
+        if self.despues.sin_perdida_exacta:
+            print("  (I_XY = H: sin pérdida la reconstrucción es idéntica al original,")
+            print("   así que I(X;Y) coincide con la entropía por definición -no es un error-)")
 
     def graficar(self, ruta: str, k: int, entropia_por_bit: np.ndarray, frecuencias: np.ndarray):
         import matplotlib
@@ -682,6 +706,19 @@ class CodecTIC:
 
         H_actual = Informacion.entropia(alfabeto.frecuencias)
         Lmed = huffman.longitud_media(alfabeto.frecuencias)
+
+        # I(X;Y) entre la fuente original (X) y la reconstruida (Y):
+        # sin pérdida, Y=X exactamente (lo verifica sin_perdida_exacta más abajo),
+        # así que I(X;Y)=H(X) por definición -- calcularlo por la vía barata en
+        # vez de construir el histograma conjunto solo para reconfirmarlo.
+        # Con pérdida, Y sí difiere de X y se mide la información mutua real.
+        if perdida:
+            fuente_rec = Fuente.desde_bytes(rec, k)
+            alfabeto_rec = Alfabeto.desde_filas(fuente_rec.filas)
+            info_mutua_XY = Informacion.informacion_mutua(alfabeto_orig.indices, alfabeto_rec.indices)
+        else:
+            info_mutua_XY = Informacion.entropia(alfabeto_orig.frecuencias)
+
         despues = MetricasDespues(
             modo_elegido=modo,
             tamano_original_B=int(len(raw)), tamano_codificado_B=tam_final,
@@ -695,14 +732,14 @@ class CodecTIC:
             tamano_estimado_huffman_B=tam_huff, tamano_estimado_bitstrip_B=tam_strip,
             H_flujo_codificado_bits_por_byte=H8,
             KL_flujo_vs_uniforme_256=8 - H8,
+            informacion_mutua_XY=info_mutua_XY,
             verificacion_sha256=hashlib.sha256(rec.tobytes()).hexdigest() == cabecera.sha256,
             sin_perdida_exacta=bool(np.array_equal(rec, raw)),
             tiempo_codificacion_s=t_cod, tiempo_decodificacion_s=t_dec,
         )
         if perdida:
-            fuente_rec = Fuente.desde_bytes(rec, k)
             co = alfabeto_orig.a_diccionario()
-            cr = Alfabeto.desde_filas(fuente_rec.filas).a_diccionario()
+            cr = alfabeto_rec.a_diccionario()
             despues.KL_original_vs_reconstruido = Informacion.kl_suavizada(co, cr)
             mse = float(np.mean((raw.astype(float) - rec.astype(float)) ** 2))
             despues.MSE_por_byte = mse

@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Teoría de la información en tic_codec.py: de la fórmula a la práctica",
+    "output": "tic_codec.teoria.html",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "antes", "label": "Antes: qué mide la fuente", "focus": ["fuente_real", "entropia", "redundancia", "autoinformacion", "kl_uniforme", "perfil_bits"], "note": "Todo lo que se calcula sobre la fuente cruda antes de decidir cómo comprimir." },
+      { "id": "durante", "label": "Durante: comprimir sin perder el control", "focus": ["perfil_bits", "redundancia", "huffman", "seleccion_modo"], "note": "Cómo se elimina redundancia de forma controlada, sin adivinar." },
+      { "id": "despues", "label": "Después: la verificación", "focus": ["seleccion_modo", "confiabilidad", "info_mutua", "veredicto"], "note": "Por qué 'confiable' aquí significa una prueba, no una promesa." },
+      { "id": "principal", "label": "De la fórmula al veredicto", "focus": ["entropia", "redundancia", "huffman", "confiabilidad", "info_mutua", "veredicto"], "note": "El camino completo: de H a la razón de compresión final." }
+    ]
+  },
+  "layout": {
+    "mode": "grid",
+    "cols": 6,
+    "cellW": 100,
+    "cellH": 82,
+    "gapX": 50,
+    "gapY": 4
+  },
+  "components": [
+    { "id": "fuente_real", "type": "external", "label": "Fuente real", "sublabel": "imagen · audio · texto · video", "row": 1, "col": 0 },
+    { "id": "entropia", "type": "backend", "label": "H — Entropía", "sublabel": "bits promedio por símbolo", "row": 1, "col": 1 },
+    { "id": "perfil_bits", "type": "backend", "label": "Perfil de bits", "sublabel": "posiciones que nunca cambian", "row": 3, "col": 1 },
+    { "id": "redundancia", "type": "backend", "label": "R — Redundancia", "sublabel": "bits de k que sobran", "row": 0, "col": 2 },
+    { "id": "autoinformacion", "type": "backend", "label": "I(x) — Autoinfo", "sublabel": "sorpresa de un símbolo", "row": 1, "col": 2 },
+    { "id": "kl_uniforme", "type": "backend", "label": "KL(P‖U)", "sublabel": "qué tan lejos de lo uniforme", "row": 2, "col": 2 },
+    { "id": "huffman", "type": "backend", "label": "Huffman canónico", "sublabel": "código corto para lo frecuente", "row": 0, "col": 3 },
+    { "id": "seleccion_modo", "type": "backend", "label": "Selección de modo", "sublabel": "el resultado más chico gana", "row": 3, "col": 3 },
+    { "id": "confiabilidad", "type": "security", "label": "Confiabilidad", "sublabel": "SHA-256 exacto, o MSE/PSNR", "row": 3, "col": 4 },
+    { "id": "info_mutua", "type": "backend", "label": "I(X;Y)", "sublabel": "info que sobrevive el viaje", "row": 1, "col": 4 },
+    { "id": "veredicto", "type": "frontend", "label": "Veredicto", "sublabel": "razón, ahorro, ¿uniforme?", "row": 1, "col": 5 }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "ANTES — medir la fuente cruda",
+      "wraps": ["entropia", "perfil_bits", "redundancia", "autoinformacion", "kl_uniforme"]
+    },
+    {
+      "kind": "region",
+      "label": "DURANTE — comprimir de forma controlada",
+      "wraps": ["huffman", "seleccion_modo"]
+    },
+    {
+      "kind": "region",
+      "label": "DESPUÉS — verificar la reconstrucción",
+      "wraps": ["confiabilidad", "info_mutua"]
+    }
+  ],
+  "connections": [
+    { "id": "fuente-entropia", "from": "fuente_real", "to": "entropia", "label": "símbolos de k bits", "variant": "emphasis", "labelDy": -17 },
+    { "id": "fuente-perfil", "from": "fuente_real", "to": "perfil_bits", "label": "mismos símbolos, por bit" },
+    { "id": "entropia-redundancia", "from": "entropia", "to": "redundancia" },
+    { "id": "entropia-autoinfo", "from": "entropia", "to": "autoinformacion", "label": "H = promedio de I(x)", "labelAt": [395, 162] },
+    { "id": "entropia-kl", "from": "entropia", "to": "kl_uniforme" },
+    { "id": "perfil-seleccion", "from": "perfil_bits", "to": "seleccion_modo", "label": "bits fijos no se comparan" },
+    { "id": "redundancia-huffman", "from": "redundancia", "to": "huffman", "variant": "emphasis" },
+    { "id": "huffman-seleccion", "from": "huffman", "to": "seleccion_modo", "label": "tamaño Huffman vs. bitstrip", "variant": "emphasis", "labelAt": [510, 154] },
+    { "id": "seleccion-confiabilidad", "from": "seleccion_modo", "to": "confiabilidad", "label": "decodifica y verifica", "variant": "emphasis", "labelDy": -24 },
+    { "id": "confiabilidad-infomutua", "from": "confiabilidad", "to": "info_mutua", "label": "exacta ⇒ I(X;Y)=H" },
+    { "id": "infomutua-veredicto", "from": "info_mutua", "to": "veredicto" },
+    { "id": "confiabilidad-veredicto", "from": "confiabilidad", "to": "veredicto", "label": "SHA-256 o PSNR", "variant": "emphasis" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Antes: la fórmula detrás de cada caja",
+      "items": [
+        "H = −Σ p(x)·log2 p(x); I(x) = −log2 p(x)",
+        "R = 1 − H/k; KL(P‖U) = log2(U) − H"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Durante: compresión controlada, no a ciegas",
+      "items": [
+        "HuffmanCanonico: código corto para lo frecuente",
+        "CodecTIC compara tamaños reales y escribe el más chico"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Después: la prueba, no la promesa",
+      "items": [
+        "I(X;Y) = Σ p(x,y)·log2(p(x,y)/(p(x)·p(y)))",
+        "SHA-256 exacto, o MSE/PSNR si hay pérdida"
+      ]
+    }
+  ]
+}

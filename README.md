@@ -36,10 +36,11 @@ Ningún símbolo individual se modela como objeto (con millones de filas eso mat
 
 ### Diagramas
 
-Dos diagramas interactivos (HTML autocontenido, sin dependencias) documentan el diseño, generados con [Archify](https://github.com/tt-a1i/archify):
+Tres diagramas interactivos (HTML autocontenido, sin dependencias) documentan el diseño, generados con [Archify](https://github.com/tt-a1i/archify):
 
 - [`diagrams/tic_codec.architecture.html`](diagrams/tic_codec.architecture.html) — arquitectura de clases: cómo `CodecTIC` orquesta `Fuente`/`Alfabeto`/`PerfilBits`/`Informacion` (análisis) y `MascaraRedundancia`/`HuffmanCanonico`/`CabeceraTIC` (formato `.tic`).
 - [`diagrams/tic_codec.dataflow.html`](diagrams/tic_codec.dataflow.html) — flujo de datos antes/durante/después: de los bytes crudos al archivo `.tic` y de vuelta a la verificación por SHA-256.
+- [`diagrams/tic_codec.teoria.html`](diagrams/tic_codec.teoria.html) — **de la teoría a la práctica**: mapa conceptual de H, I(x), R, KL(P‖U), I(X;Y) y confiabilidad, con la fórmula de cada uno, su idea intuitiva, cómo se relacionan entre sí y qué clase del código los calcula. Pensado para entender el proyecto sin haber leído antes ni la teoría ni el código.
 
 Cada uno incluye vistas guiadas (`Guided views`), leyenda, y modo claro/oscuro. Las especificaciones fuente (`.json`) y las capturas de verificación visual quedan también en `diagrams/`.
 

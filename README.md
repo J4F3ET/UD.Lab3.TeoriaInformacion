@@ -97,6 +97,12 @@ python src/tic_codec.py decodificar reports/prueba.tic reports/salida.bin
 
 Requisitos: `numpy` (obligatorio), `matplotlib` (solo si se usa `--grafica`), `soundfile` (solo para preparar fuentes de audio — decodificar/convertir formatos antes de pasárselas al códec, no lo usa `tic_codec.py` directamente).
 
+### Interfaz web y despliegue
+
+`web/app.py` envuelve el mismo `CodecTIC` en una API (FastAPI) con una página para subir un archivo, elegir k y ver las métricas antes/durante/después, el barrido de k y la decodificación; también sirve los diagramas. En local: `pip install -r requirements-dev.txt` y `python -m uvicorn web.app:app --reload`.
+
+Se despliega en un LXC de Proxmox con Docker, publicado por Tailscale Funnel en el puerto 443 y actualizado por GitHub Actions con un runner self-hosted en cada push a `main`. Paso a paso en [`deploy/README.md`](deploy/README.md).
+
 ## Primera corrida real: imagen JPEG
 Se corrió el códec sobre una foto real (JPEG, 1 486 484 bytes, una de las capturas del tablero de clase). Resultados con k = 8 (`examples/imagen_jpeg/imagen_prueba.json`, gráfica en `imagen_prueba.png`):
 

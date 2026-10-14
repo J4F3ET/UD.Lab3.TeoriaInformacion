@@ -1,0 +1,7 @@
+# Códec (src/)
+numpy>=1.26,<3
+matplotlib>=3.8
+# Servidor web (web/)
+fastapi>=0.110
+uvicorn>=0.29
+python-multipart>=0.0.9

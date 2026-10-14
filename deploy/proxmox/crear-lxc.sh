@@ -5,7 +5,8 @@
 #   bash crear-lxc.sh                    # valores por defecto
 #   CTID=210 MEMORIA=6144 bash crear-lxc.sh
 #
-# Al final copia y ejecuta bootstrap-lxc.sh dentro del contenedor (Docker + usuario deployer).
+# Al final copia y ejecuta bootstrap-lxc.sh dentro del contenedor (Docker) y deja
+# instalar-runner.sh en /root/ para el siguiente paso.
 set -euo pipefail
 
 CTID="${CTID:-$(pvesh get /cluster/nextid)}"
@@ -75,8 +76,8 @@ cat <<EOF
 
 ✔ LXC $CTID listo ($NOMBRE, IP $IP_REAL) con Docker instalado.
 
-Siguiente paso — registrar el runner de GitHub Actions:
+Siguiente paso — registrar el runner de GitHub Actions (crea el usuario deployer y el servicio):
   1. En GitHub: Settings → Actions → Runners → New self-hosted runner → copia el token.
   2. En este host:
-       pct exec $CTID -- su - deployer -c 'bash /opt/instalar-runner.sh <URL_DEL_REPO> <TOKEN>'
+       pct exec $CTID -- bash /root/instalar-runner.sh https://github.com/J4F3ET/UD.Lab3.TeoriaInformacion <TOKEN>
 EOF

@@ -130,7 +130,6 @@ Recomendado: en la consola, menú `⋯` de `tic-codec` → **Disable key expiry*
 
 | Tipo | Nombre | Valor |
 |---|---|---|
-| Variable | `TS_HOSTNAME` | nombre del nodo; define la URL. Defecto `tic-codec` |
 | Variable | `URL_PUBLICA` | `https://tic-codec.<tailnet>.ts.net` — sale como enlace en cada despliegue |
 
 ## 5. Desplegar

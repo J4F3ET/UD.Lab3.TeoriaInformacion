@@ -225,13 +225,29 @@ function pintarIA(r) {
   $("#ia-sub").textContent =
     `${p.bloques} bloques de ${ent(p.bloque_B / 1024)} KB · γ = ${num(p.gamma, 2)} · c = ${num(p.c, 2)} · ${seg(r.tiempo_s)}` +
     (p.bytes_analizados < estado.fuente.tamano_B ? ` · analiza los primeros ${bytes(p.bytes_analizados)}` : "");
-  const dato = (etq, valor) => el("div", {}, el("dt", { text: etq }), el("dd", { text: valor }));
+  const dato = (etq, valor, ayuda) => el("div", { title: ayuda }, el("dt", { text: etq }), el("dd", { text: valor }),
+    el("dd", { class: "ayuda", text: ayuda }));
+  const optima = pol["óptimo"].razon_global;
   $("#ia-datos").replaceChildren(
-    dato("Razón IA", num(pol.bandido.razon_global)),
-    dato("Razón óptima por bloque", num(pol["óptimo"].razon_global)),
-    dato("k fijo = 8", num(pol["k fijo = 8"].razon_global)),
-    dato("Aleatoria", num(pol.aleatoria.razon_global)),
-    dato("Barridos de reinicio", pol.bandido.barridos_reinicio),
+    dato("Razón IA", num(pol.bandido.razon_global), `${num((100 * pol.bandido.razon_global) / optima, 0)} % del techo`),
+    dato("Razón óptima por bloque", num(optima), "techo: mejor k en cada bloque"),
+    dato("k fijo = 8", num(pol["k fijo = 8"].razon_global), "sin IA, k mínimo"),
+    dato("Aleatoria", num(pol.aleatoria.razon_global), "k al azar en cada bloque"),
+    dato("Barridos de reinicio", pol.bandido.barridos_reinicio, "veces que detectó un cambio"),
+  );
+
+  // Exploración: los primeros len(ks) bloques prueban cada k una vez; después, cada bloque
+  // en que no elige su k favorito es exploración. Ese porcentaje es el equivalente práctico de ε.
+  const nIni = Math.min(p.ks.length, r.secuencia.length);
+  const resto = r.secuencia.slice(nIni);
+  const explora = resto.filter((s) => s.k_bandido !== r.k_ia).length;
+  const aciertos = resto.filter((s) => s.k_bandido === s.k_optimo).length;
+  const pct = (a, b) => (b ? `${num((100 * a) / b, 0)} %` : "—");
+  $("#ia-exploracion").replaceChildren(
+    tarjeta("Exploración inicial", `${nIni} bloques`, "prueba cada k una vez"),
+    tarjeta("Exploración observada (≈ ε)", pct(explora, resto.length), `${explora} de ${resto.length} bloques sin su k favorito`),
+    tarjeta("Aciertos tras explorar", pct(aciertos, resto.length), `${aciertos} de ${resto.length} con el mejor k del bloque`),
+    tarjeta("c · γ", `${num(p.c, 2)} · ${num(p.gamma, 2)}`, `curiosidad · olvido (memoria ≈ ${ent(1 / (1 - p.gamma))} bloques)`, "medio"),
   );
   $("#btn-codificar-ia").textContent = `Codificar con k = ${r.k_ia}`;
 
@@ -260,6 +276,12 @@ function pintarLineaTiempoIA(r) {
   const y = (k) => alto - (ks.indexOf(k) + 0.5) * fila;
   const n = r.secuencia.length;
   const x = (b) => ((b + 0.5) / n) * ancho;
+  // Franja de la exploración inicial (un bloque por k).
+  const nIni = Math.min(ks.length, n);
+  svg.append(svgEl("rect", { x: 0, y: 0, width: (nIni / n) * ancho, height: alto, fill: "rgba(196,161,255,0.08)", stroke: "rgba(196,161,255,0.4)", "stroke-dasharray": "4 3" }));
+  const etiqueta = svgEl("text", { x: 6, y: 14, fill: "#C4A1FF", "font-size": 11, "font-family": "IBM Plex Sans, sans-serif" });
+  etiqueta.textContent = "exploración inicial";
+  svg.append(etiqueta);
   for (const k of ks) svg.append(svgEl("line", { x1: 0, y1: y(k), x2: ancho, y2: y(k), stroke: "#262D38" }));
   const radio = Math.max(2, Math.min(5, (ancho / n) * 0.35));
   for (const s of r.secuencia) {
@@ -273,7 +295,8 @@ function pintarLineaTiempoIA(r) {
   const aciertos = r.secuencia.filter((s) => s.k_bandido === s.k_optimo).length;
   svg.setAttribute("aria-label", `k elegido por la IA en ${n} bloques; coincide con el óptimo en ${aciertos}`);
   $("#ia-y").replaceChildren(...[...ks].reverse().map((k) => el("span", { text: k })));
-  $("#ia-x").replaceChildren(el("span", { text: "bloque 0" }), el("span", { text: `${aciertos} de ${n} bloques con el k óptimo` }), el("span", { text: n - 1 }));
+  $("#ia-x").replaceChildren(el("span", { text: "0" }), el("span", { text: Math.floor((n - 1) / 2) }), el("span", { text: n - 1 }));
+  $("#ia-x-titulo").textContent = `bloque del archivo (${ent(r.parametros.bloque_B / 1024)} KB cada uno) · ${aciertos} de ${n} con el mejor k`;
 }
 
 // Atajos en Codificar para usar el k de la IA o el del barrido.
@@ -444,6 +467,7 @@ function pintarDurante(d) {
   $("#durante-y").replaceChildren(...ticks(lo, hi, hi - lo < 6 ? 1 : 0));
   $("#durante-y2").replaceChildren(...ticks(rlo, rhi, 2));
   $("#durante-sub").textContent = `${n} bloques consecutivos del archivo`;
+  $("#durante-x").replaceChildren(el("span", { text: "0" }), el("span", { text: Math.floor((n - 1) / 2) }), el("span", { text: n - 1 }));
 
   const kl = d.map((b) => b.KL_bloque_vs_global);
   const iMax = kl.indexOf(Math.max(...kl));

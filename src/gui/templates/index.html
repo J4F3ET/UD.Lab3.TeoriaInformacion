@@ -119,16 +119,35 @@
       <div class="fila-panel">
         <h3>k elegido en cada bloque</h3>
         <div class="leyenda">
-          <span><i class="punto lleno"></i>k de la IA</span>
-          <span><i class="punto hueco"></i>k óptimo del bloque</span>
+          <span><i class="punto lleno"></i>k que eligió la IA</span>
+          <span><i class="punto hueco"></i>mejor k del bloque (medido con los 9)</span>
+          <span><i class="punto acierto"></i>acierto</span>
           <span><i class="triangulo"></i>barrido de reinicio</span>
+          <span><i class="franja"></i>exploración inicial</span>
         </div>
       </div>
-      <div class="grafica">
-        <div class="eje-y" id="ia-y" style="height: 252px;"></div>
-        <svg id="ia-svg" role="img" style="height: 252px;"></svg>
+      <div class="grafica-titulada">
+        <div class="eje-titulo-y">k (bits por símbolo)</div>
+        <div class="grafica">
+          <div class="eje-y" id="ia-y" style="height: 252px;"></div>
+          <svg id="ia-svg" role="img" style="height: 252px;"></svg>
+        </div>
       </div>
-      <div class="eje-x-pie" id="ia-x" style="padding: 0 0 0 42px;"></div>
+      <div class="eje-x-pie" id="ia-x" style="padding: 0 0 0 66px;"></div>
+      <div class="eje-titulo-x" id="ia-x-titulo"></div>
+
+      <div class="tarjetas" id="ia-exploracion"></div>
+
+      <details class="como-leer">
+        <summary>Cómo leer esta gráfica</summary>
+        <ul>
+          <li><b>Cada columna es un bloque</b> del archivo, en orden. En cada uno la IA elige un k sin conocer el bloque; después mide cuánto comprimió y aprende de eso.</li>
+          <li><b>La escalera del inicio</b> (franja sombreada) es la exploración inicial: la IA no sabe nada y prueba cada uno de los 9 k una vez.</li>
+          <li><b>Punto morado dentro del círculo azul</b> = acertó el mejor k de ese bloque. Un punto morado fuera del círculo es exploración: revisa otro k por si ahora rinde más.</li>
+          <li><b>No hay ε.</b> Esta IA es un bandido UCB, no ε-greedy: no explora al azar, sino que suma a cada k un bono de curiosidad c·√(ln ΣN / N(k)) que crece mientras más tiempo lleva sin probarlo. <b>c</b> fija cuánto pesa esa curiosidad y <b>γ</b> cuánto olvida lo aprendido (memoria de ~1/(1−γ) bloques). La «exploración observada» de arriba es el equivalente práctico de ε.</li>
+          <li><b>Triángulo</b> = la recompensa cambió más de 0,25 respecto de lo esperado: la IA supone que la fuente cambió, mide los 9 k en ese bloque y se re-entrena.</li>
+        </ul>
+      </details>
       <p class="tenue" id="ia-nota" style="margin: 0; font-size: 13px;"></p>
     </section>
 
@@ -138,8 +157,12 @@
           <h2>Razón de compresión estimada</h2>
           <div class="leyenda"><span><i class="muestra cuadro" style="background: var(--acento);"></i>razón</span><span><i class="muestra cuadro" style="background: var(--resalte);"></i>k recomendado</span><span id="barrido-tiempo"></span></div>
         </div>
-        <div class="barras" id="barrido-barras"></div>
-        <div class="ejes-x" id="barrido-ejes"></div>
+        <div class="grafica-titulada">
+          <div class="eje-titulo-y">razón estimada</div>
+          <div class="barras" id="barrido-barras" style="flex: 1;"></div>
+        </div>
+        <div class="ejes-x" id="barrido-ejes" style="margin-left: 24px;"></div>
+        <div class="eje-titulo-x">k: bits por símbolo</div>
       </section>
 
       <section class="panel" style="padding: 0; overflow: hidden;" aria-label="Tabla del barrido">
@@ -188,13 +211,21 @@
       <div class="columnas">
         <section class="panel" aria-labelledby="perfil-h">
           <div class="fila-panel"><h3 id="perfil-h">Entropía por posición de bit</h3><span class="tenue" style="font-size: 13px;" id="perfil-sub"></span></div>
-          <div class="grafica"><div class="eje-y"><span>1</span><span>0,5</span><span>0</span></div><svg id="perfil-svg" viewBox="0 0 1000 220" preserveAspectRatio="none" role="img"></svg></div>
-          <div class="eje-x-pie" id="perfil-ejes" style="padding: 0 0 0 42px;"></div>
+          <div class="grafica-titulada">
+            <div class="eje-titulo-y">H(bit) en bits</div>
+            <div class="grafica"><div class="eje-y"><span>1</span><span>0,5</span><span>0</span></div><svg id="perfil-svg" viewBox="0 0 1000 220" preserveAspectRatio="none" role="img"></svg></div>
+          </div>
+          <div class="eje-x-pie" id="perfil-ejes" style="padding: 0 0 0 66px;"></div>
+          <div class="eje-titulo-x">posición del bit dentro del símbolo (0 = más significativo)</div>
         </section>
         <section class="panel" aria-labelledby="rf-h">
           <div class="fila-panel"><h3 id="rf-h">Rango-frecuencia (log-log)</h3><span class="tenue" style="font-size: 13px;" id="rf-sub"></span></div>
-          <div class="grafica"><div class="eje-y" id="rf-y"></div><svg id="rf-svg" viewBox="0 0 1000 220" preserveAspectRatio="none" role="img"></svg></div>
-          <div class="eje-x-pie" id="rf-x" style="padding: 0 0 0 42px;"></div>
+          <div class="grafica-titulada">
+            <div class="eje-titulo-y">probabilidad (log)</div>
+            <div class="grafica"><div class="eje-y" id="rf-y"></div><svg id="rf-svg" viewBox="0 0 1000 220" preserveAspectRatio="none" role="img"></svg></div>
+          </div>
+          <div class="eje-x-pie" id="rf-x" style="padding: 0 0 0 66px;"></div>
+          <div class="eje-titulo-x">rango del símbolo: 1 = el más frecuente (escala log)</div>
         </section>
       </div>
 
@@ -207,12 +238,28 @@
             <span><i class="muestra discontinua"></i>razón acumulada (eje der.)</span>
           </div>
         </div>
-        <div class="grafica">
-          <div class="eje-y" id="durante-y"></div>
-          <svg id="durante-svg" viewBox="0 0 1000 220" preserveAspectRatio="none" role="img"></svg>
-          <div class="eje-y der" id="durante-y2"></div>
+        <div class="grafica-titulada">
+          <div class="eje-titulo-y">H y L̄ (bits/símbolo)</div>
+          <div class="grafica">
+            <div class="eje-y" id="durante-y"></div>
+            <svg id="durante-svg" viewBox="0 0 1000 220" preserveAspectRatio="none" role="img"></svg>
+            <div class="eje-y der" id="durante-y2"></div>
+          </div>
+          <div class="eje-titulo-y der">razón acumulada</div>
         </div>
+        <div class="eje-x-pie" id="durante-x" style="padding: 0 66px 0 66px;"></div>
+        <div class="eje-titulo-x">bloque del archivo (tramos consecutivos, en orden)</div>
         <div class="tenue" style="font-size: 13px;" id="durante-nota"></div>
+        <details class="como-leer">
+          <summary>Cómo leer esta gráfica</summary>
+          <ul>
+            <li><b>Eje horizontal:</b> el archivo partido en tramos consecutivos (bloques), en orden de principio a fin.</li>
+            <li><b>Línea azul H (eje izquierdo):</b> la entropía del bloque, la información real que trae cada símbolo, en bits. Es el mínimo teórico al que puede llegar un código.</li>
+            <li><b>Línea naranja L̄ (eje izquierdo):</b> los bits que usa de verdad el código de Huffman por símbolo en ese bloque. Siempre queda en H o por encima; mientras más pegada a la azul, más eficiente es el código.</li>
+            <li><b>Línea discontinua (eje derecho):</b> la razón de compresión acumulada desde el inicio hasta ese bloque (bytes originales ÷ bytes comprimidos). Si sube, el archivo se está comprimiendo mejor a medida que avanza.</li>
+            <li><b>Si H cambia mucho entre bloques</b>, la fuente no es estacionaria: un tramo del archivo es más predecible que otro. La KL(bloque‖global) de abajo mide qué tan distinto es cada bloque del archivo completo.</li>
+          </ul>
+        </details>
       </section>
 
       <section class="vista" style="gap: 14px;" aria-labelledby="despues-h">

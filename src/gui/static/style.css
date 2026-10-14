@@ -104,6 +104,7 @@ h3 { margin: 0; font-size: 16px; font-weight: 600; }
 .datos { margin: 0; display: flex; flex-wrap: wrap; gap: 8px 40px; }
 .datos dt { font-size: 12px; color: var(--tenue); }
 .datos dd { margin: 0; font-family: var(--mono); }
+.datos dd.ayuda { font-family: var(--sans); font-size: 12px; color: var(--tenue); }
 .datos-rejilla { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 24px; }
 .datos-rejilla dt { font-size: 12px; color: var(--tenue); }
 .datos-rejilla dd { margin: 0; font-family: var(--mono); overflow-wrap: anywhere; }
@@ -180,6 +181,17 @@ tr.mejor td.k, tr.mejor td.razon { color: var(--resalte); font-weight: 600; }
 .punto.lleno { background: var(--ia); }
 .punto.hueco { border: 2px solid var(--acento); }
 .triangulo { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 9px solid var(--serie-3); display: inline-block; }
+.punto.acierto { background: var(--ia); box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--acento); width: 8px; height: 8px; margin: 0 2px; }
+.franja { width: 14px; height: 12px; border-radius: 2px; background: rgba(196, 161, 255, 0.16); border: 1px dashed rgba(196, 161, 255, 0.5); display: inline-block; }
+.grafica-titulada { display: flex; align-items: center; gap: 4px; }
+.grafica-titulada > .grafica { flex: 1; min-width: 0; }
+.eje-titulo-y { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 12px; color: var(--tenue); text-align: center; max-height: 240px; width: 20px; flex: none; }
+.eje-titulo-y.der { transform: none; }
+.eje-titulo-x { text-align: center; font-size: 12px; color: var(--tenue); margin-top: -8px; }
+.como-leer { border: 1px solid var(--borde); border-radius: 10px; padding: 12px 16px; font-size: 14px; }
+.como-leer summary { cursor: pointer; font-weight: 500; min-height: 28px; }
+.como-leer ul { margin: 10px 0 2px; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; color: var(--tenue); }
+.como-leer b { color: var(--texto); font-weight: 500; }
 .ejes-x .ia { color: var(--ia); font-weight: 600; }
 .sugerencias { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; color: var(--tenue); }
 .sugerencias button { min-height: 36px; padding: 0 12px; border: 1px solid var(--borde-fuerte); border-radius: 999px; background: transparent; color: var(--texto); font: inherit; font-family: var(--mono); cursor: pointer; }

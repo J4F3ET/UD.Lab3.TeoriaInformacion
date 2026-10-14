@@ -45,6 +45,7 @@ GUI = Path(__file__).resolve().parent / "gui"
 app = Flask(__name__, template_folder=str(GUI / "templates"), static_folder=str(GUI / "static"))
 # 2 GB por archivo subido; en el despliegue público se baja con TIC_MAX_MB (ver deploy/compose.yaml).
 app.config["MAX_CONTENT_LENGTH"] = int(float(os.environ.get("TIC_MAX_MB", 2048)) * 1024 ** 2)
+app.config["TEMPLATES_AUTO_RELOAD"] = True  # ver cambios en index.html sin reiniciar el servidor
 
 
 # ═══════════════════════════ utilidades ═══════════════════════════

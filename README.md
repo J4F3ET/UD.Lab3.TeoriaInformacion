@@ -99,7 +99,7 @@ Requisitos: `numpy` (obligatorio), `matplotlib` (solo si se usa `--grafica`), `s
 
 ## Interfaz gráfica
 
-`src/app.py` es un backend Flask que expone el mismo códec como API JSON; la interfaz web (`src/gui/`: HTML, CSS y JS sin dependencias ni paso de build, funciona sin internet) la consume en cuatro vistas: **Fuente** (subir o generar), **Barrido de k** (razón estimada por k, mejor k resaltado), **Codificar** (métricas antes/durante/después, entropía por bit, rango-frecuencia, descarga del `.tic` y del reporte) y **Decodificar** (cabecera TIC1, verificación SHA-256, descarga del reconstruido). No reimplementa nada: cada endpoint llama a `CodecTIC` / `GeneradorFuentes`.
+`src/app.py` es un backend Flask que expone el mismo códec como API JSON; la interfaz web (`src/gui/`: HTML, CSS y JS sin dependencias ni paso de build, funciona sin internet) la consume en cuatro vistas: **Fuente** (subir o generar), **Barrido de k** (razón estimada por k, mejor k resaltado, y el **k que elige la IA** —el bandido UCB de `tic_bandido.py`— con su recorrido bloque a bloque), **Codificar** (métricas antes/durante/después, entropía por bit, rango-frecuencia, descarga del `.tic` y del reporte) y **Decodificar** (cabecera TIC1, verificación SHA-256, descarga del reconstruido). No reimplementa nada: cada endpoint llama a `CodecTIC` / `GeneradorFuentes`.
 
 ```bash
 pip install -r requirements.txt
@@ -113,6 +113,7 @@ Abre http://127.0.0.1:5000. Lo que se sube o genera queda en `data/gui/<id>/` (i
 | `POST /api/subir` | multipart `archivo` | id, nombre, tamaño, tipo, SHA-256 |
 | `POST /api/generar` | `{tipo, mb, semilla}` | lo mismo, para una fuente sintética |
 | `POST /api/barrido` | `{id, conjunto: "base"\|"extendido"}` o `{id, ks: [...]}` | métricas "antes" y razón estimada por k, `mejor_k` |
+| `POST /api/ia` | `{id, gamma?, c?}` | `k_ia`: el k que elige el bandido UCB de `tic_bandido.py` recorriendo el archivo en ~64 bloques (el más elegido en la segunda mitad, ya terminada la exploración), su secuencia bloque a bloque y la razón frente a k fijo, aleatoria y óptimo por bloque |
 | `POST /api/codificar` | `{id, k, perdida, bloques}` | reporte antes/durante/después, entropía por bit, curva rango-frecuencia, enlaces al `.tic` y al JSON |
 | `POST /api/decodificar` | `{id, tic}` o multipart `archivo` (.tic) | cabecera, verificación SHA-256, `identico_al_original`, enlace al reconstruido |
 | `GET /api/descargar/<id>/<nombre>` | — | el archivo |

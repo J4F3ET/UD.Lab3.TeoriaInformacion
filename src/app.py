@@ -36,6 +36,7 @@ from werkzeug.utils import secure_filename
 # tic_codec.py vive en la misma carpeta; se importa como módulo, no se copia nada.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from tic_codec import K_BASE, K_EXT, CodecTIC, GeneradorFuentes  # noqa: E402
+from tic_bandido import DIR_DATOS, UMBRAL_CAMBIO, FlujoBloques, SimuladorFlujo, Tramo  # noqa: E402
 
 RAIZ = Path(__file__).resolve().parent.parent
 TRABAJO = RAIZ / "data" / "gui"   # data/* ya está en .gitignore
@@ -221,6 +222,68 @@ def barrido():
     return jsonify(a_json({
         "resultados": resultados,
         "mejor_k": mejor["k_bits"],
+        "tiempo_s": time.time() - t0,
+    }))
+
+
+# ═══════════════════════════ IA: bandido UCB ═══════════════════════════
+BLOQUE_IA_MAX = 256 * 1024   # el mismo bloque por defecto que tic_bandido.py
+BLOQUE_IA_MIN = 4 * 1024
+BLOQUES_IA_OBJETIVO = 64     # el bandido gasta los primeros 9 bloques explorando: hacen falta muchos más
+BLOQUES_IA_MIN = 24
+BLOQUES_IA_MAX = 200         # tope de bloques para acotar el tiempo con archivos grandes
+
+
+@app.post("/api/ia")
+def ia():
+    """Corre el bandido UCB descontado de tic_bandido.py sobre los bloques del
+    archivo, como un flujo de un solo tramo, y devuelve el k que eligió."""
+    datos = request.get_json(silent=True) or {}
+    id_ = datos.get("id", "")
+    ruta, meta = ruta_fuente(id_)
+    try:
+        gamma = float(datos.get("gamma", 0.98))
+        c = float(datos.get("c", 0.05))
+    except (TypeError, ValueError):
+        raise ErrorAPI("gamma y c deben ser números")
+    if not (0 < gamma <= 1 and c >= 0):
+        raise ErrorAPI("gamma debe estar en (0, 1] y c ≥ 0")
+
+    # Bloque de 256 KB si el archivo da al menos 64; si no, el archivo partido en ~64,
+    # en múltiplos de 256 B (un símbolo de k = 2048) para que todos los k cuadren.
+    tamano = meta["tamano_B"]
+    bloque = max(BLOQUE_IA_MIN, min(BLOQUE_IA_MAX, tamano // BLOQUES_IA_OBJETIVO // 256 * 256))
+    n_bloques = min(BLOQUES_IA_MAX, tamano // bloque)
+    if n_bloques < BLOQUES_IA_MIN:
+        raise ErrorAPI(f"el archivo es muy pequeño para la IA: necesita al menos "
+                       f"{BLOQUES_IA_MIN * BLOQUE_IA_MIN // 1024} KB ({BLOQUES_IA_MIN} bloques de 4 KB)")
+
+    # FlujoBloques lee los tramos "archivo" relativos a data/; la fuente vive en data/gui/<id>/.
+    relativa = ruta.relative_to(DIR_DATOS).as_posix()
+    flujo = FlujoBloques([Tramo(meta["nombre"], "archivo", relativa)], bloque, n_bloques)
+    sim = SimuladorFlujo(flujo, gamma=gamma, c=c)
+    t0 = time.time()
+    sim.calcular_matriz()
+    sim.reproducir()
+    resultado = sim.a_dict()
+    tramo = resultado["detalle_tramos"][0]
+    secuencia = resultado["secuencia"]
+    # El k de la IA es el que más elige en la segunda mitad del flujo, cuando ya terminó
+    # de explorar (en la primera prueba cada k una vez). Empate → el k menor.
+    convergido = [s["k_bandido"] for s in secuencia[len(secuencia) // 2:]]
+    k_ia = max(K_BASE, key=lambda k: (convergido.count(k), -k))
+
+    return jsonify(a_json({
+        "k_ia": k_ia,
+        "k_ia_mas_elegido": tramo["k_bandido_mas_elegido"],
+        "k_ia_final": secuencia[-1]["k_bandido"],
+        "k_optimo_bloques": tramo["k_optimo_mas_frecuente"],
+        "conteo_k_bandido": tramo["conteo_k_bandido"],
+        "resumen_politicas": resultado["resumen_politicas"],
+        "secuencia": [{"bloque": s["bloque"], "contexto": s["contexto"], "k_bandido": s["k_bandido"],
+                       "k_optimo": s["k_optimo"], "barrido_reinicio": s["barrido_reinicio"]} for s in secuencia],
+        "parametros": {"gamma": gamma, "c": c, "bloque_B": bloque, "bloques": n_bloques,
+                       "bytes_analizados": bloque * n_bloques, "umbral_cambio": UMBRAL_CAMBIO, "ks": K_BASE},
         "tiempo_s": time.time() - t0,
     }))
 

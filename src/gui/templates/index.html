@@ -98,11 +98,39 @@
           <button type="button" aria-pressed="false" data-conjunto="propia">Lista propia</button>
         </div>
         <label class="campo" id="campo-ks" hidden>Valores de k<input type="text" class="ancho" id="ks-propia" placeholder="8, 64, 2048, 32888"></label>
-        <button class="boton primario" type="button" id="btn-barrido">Ejecutar barrido</button>
+        <button class="boton" type="button" id="btn-barrido">Ejecutar barrido</button>
+        <button class="boton primario" type="button" id="btn-ia">Elegir k con IA</button>
       </div>
     </div>
     <div class="vacio" data-sin-fuente>Primero carga una fuente en <button class="enlace" type="button" data-ir="fuente">1 · Fuente</button>.</div>
+    <div id="carga-ia" class="cargando" hidden>La IA recorre el archivo por bloques y aprende qué k conviene…</div>
     <div id="carga-barrido" class="cargando" hidden>Midiendo la fuente para cada k…</div>
+
+    <section class="panel" id="res-ia" aria-labelledby="ia-h" hidden>
+      <div class="ia-cabeza">
+        <div class="ia-k">
+          <div class="etq-ia"><span class="pastilla ia">IA</span>Bandido UCB descontado</div>
+          <h2 id="ia-h" class="k-grande">k = <span id="ia-k"></span></h2>
+          <div class="tenue" id="ia-sub" style="font-size: 13px;"></div>
+        </div>
+        <dl class="datos" id="ia-datos"></dl>
+        <button class="boton primario" type="button" id="btn-codificar-ia"></button>
+      </div>
+      <div class="fila-panel">
+        <h3>k elegido en cada bloque</h3>
+        <div class="leyenda">
+          <span><i class="punto lleno"></i>k de la IA</span>
+          <span><i class="punto hueco"></i>k óptimo del bloque</span>
+          <span><i class="triangulo"></i>barrido de reinicio</span>
+        </div>
+      </div>
+      <div class="grafica">
+        <div class="eje-y" id="ia-y" style="height: 252px;"></div>
+        <svg id="ia-svg" role="img" style="height: 252px;"></svg>
+      </div>
+      <div class="eje-x-pie" id="ia-x" style="padding: 0 0 0 42px;"></div>
+      <p class="tenue" id="ia-nota" style="margin: 0; font-size: 13px;"></p>
+    </section>
 
     <div id="res-barrido" class="vista" hidden>
       <section class="panel" aria-label="Razón estimada por k">
@@ -134,6 +162,7 @@
       <div>
         <h1>Codificar</h1>
         <p>Huffman canónico o bitstrip, el que resulte más pequeño. Métricas antes, durante y después.</p>
+        <div class="sugerencias" id="sugerencias" hidden></div>
       </div>
       <form class="campos" id="form-codificar">
         <label class="campo">k (bits/símbolo)<input type="number" name="k" value="8" min="8" step="8" list="lista-k" required></label>

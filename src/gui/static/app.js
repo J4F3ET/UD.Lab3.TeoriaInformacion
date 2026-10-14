@@ -6,8 +6,8 @@ const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
 const SVG = "http://www.w3.org/2000/svg";
 
-// Estado de la sesión: la fuente activa, el último barrido y el último .tic codificado.
-const estado = { fuente: null, barrido: null, tic: null, conjunto: "base" };
+// Estado de la sesión: la fuente activa, el último barrido, la elección de la IA y el último .tic.
+const estado = { fuente: null, barrido: null, ia: null, tic: null, conjunto: "base" };
 
 // ═════════ formato ═════════
 const nf = (dec) => new Intl.NumberFormat("es-CO", { minimumFractionDigits: dec, maximumFractionDigits: dec });
@@ -91,6 +91,9 @@ document.addEventListener("click", (e) => {
 function fijarFuente(meta) {
   estado.fuente = meta;
   estado.barrido = null;
+  estado.ia = null;
+  $("#res-ia").hidden = true;
+  actualizarSugerencias();
   $("#fuente-nombre").textContent = meta.nombre;
   $("#fuente-origen").textContent = meta.origen === "subido" ? "Fuente activa · subida" : "Fuente activa · sintética";
   $("#fuente-tamano").textContent = bytes(meta.tamano_B);
@@ -172,7 +175,8 @@ function pintarBarrido(r) {
     barra.style.height = `${Math.max(2, (f.razon_estimada / maxRazon) * 200)}px`;
     barras.append(el("div", { class: `col${mejor ? " mejor" : ""}${plano ? " plano" : ""}`, title: `k = ${f.k_bits}` },
       el("span", { text: num(f.razon_estimada) }), barra));
-    ejes.append(el("span", { class: mejor ? "mejor" : "", text: f.k_bits }));
+    const esIA = estado.ia && f.k_bits === estado.ia.k_ia;
+    ejes.append(el("span", { class: esIA ? "ia" : mejor ? "mejor" : "", text: esIA ? `${f.k_bits} · IA` : f.k_bits }));
   }
   $("#barrido-tiempo").textContent = `${filas.length} valores de k · ${seg(r.tiempo_s)}`;
 
@@ -182,6 +186,7 @@ function pintarBarrido(r) {
     const mejor = f.k_bits === r.mejor_k;
     const estructura = el("td", { class: "izq", text: f.estructura });
     if (mejor) estructura.append(el("span", { class: "pastilla", text: "mejor" }));
+    if (estado.ia && f.k_bits === estado.ia.k_ia) estructura.append(el("span", { class: "pastilla ia", style: "margin-left: 8px;", text: "IA" }));
     tbody.append(el("tr", { class: mejor ? "mejor" : "" },
       el("td", { class: "k", text: f.k_bits }),
       el("td", { text: ent(f.N_simbolos) }),
@@ -196,11 +201,89 @@ function pintarBarrido(r) {
     ));
   }
   $("#res-barrido").hidden = false;
+  actualizarSugerencias();
 }
 
 function irACodificar(k) {
   $("#form-codificar").elements.k.value = k;
   mostrar("codificar");
+}
+
+// ═════════ IA: bandido UCB (src/tic_bandido.py) ═════════
+$("#btn-ia").addEventListener("click", async () => {
+  if (!estado.fuente) return mostrar("fuente");
+  const r = await ocupado("#carga-ia", [$("#btn-ia"), $("#btn-barrido")], () => api("/api/ia", { id: estado.fuente.id }));
+  if (r) pintarIA(r);
+});
+$("#btn-codificar-ia").addEventListener("click", () => estado.ia && irACodificar(estado.ia.k_ia));
+
+function pintarIA(r) {
+  estado.ia = r;
+  const p = r.parametros;
+  const pol = r.resumen_politicas;
+  $("#ia-k").textContent = r.k_ia;
+  $("#ia-sub").textContent =
+    `${p.bloques} bloques de ${ent(p.bloque_B / 1024)} KB · γ = ${num(p.gamma, 2)} · c = ${num(p.c, 2)} · ${seg(r.tiempo_s)}` +
+    (p.bytes_analizados < estado.fuente.tamano_B ? ` · analiza los primeros ${bytes(p.bytes_analizados)}` : "");
+  const dato = (etq, valor) => el("div", {}, el("dt", { text: etq }), el("dd", { text: valor }));
+  $("#ia-datos").replaceChildren(
+    dato("Razón IA", num(pol.bandido.razon_global)),
+    dato("Razón óptima por bloque", num(pol["óptimo"].razon_global)),
+    dato("k fijo = 8", num(pol["k fijo = 8"].razon_global)),
+    dato("Aleatoria", num(pol.aleatoria.razon_global)),
+    dato("Barridos de reinicio", pol.bandido.barridos_reinicio),
+  );
+  $("#btn-codificar-ia").textContent = `Codificar con k = ${r.k_ia}`;
+
+  let nota = `La IA elige un k por bloque usando solo la razón que mide el códec: explora cada k una vez y luego se queda con el que mejor le rinde. ` +
+    `«k de la IA» es el que más eligió en la segunda mitad del flujo; el óptimo más frecuente por bloque fue k = ${r.k_optimo_bloques}.`;
+  if (estado.barrido && estado.barrido.mejor_k !== r.k_ia) {
+    nota += ` El barrido sobre el archivo completo prefiere k = ${estado.barrido.mejor_k}: con el archivo entero hay más repeticiones para los k grandes que dentro de un bloque.`;
+  }
+  $("#ia-nota").textContent = nota;
+
+  $("#res-ia").hidden = false;
+  pintarLineaTiempoIA(r);
+  if (estado.barrido) pintarBarrido(estado.barrido);
+  actualizarSugerencias();
+}
+
+// Una fila por k (eje y en escala log2) y una columna por bloque.
+function pintarLineaTiempoIA(r) {
+  const svg = $("#ia-svg");
+  const ancho = Math.max(svg.clientWidth, 300);
+  const alto = 252;
+  svg.setAttribute("viewBox", `0 0 ${ancho} ${alto}`);
+  svg.replaceChildren();
+  const ks = r.parametros.ks;
+  const fila = alto / ks.length;
+  const y = (k) => alto - (ks.indexOf(k) + 0.5) * fila;
+  const n = r.secuencia.length;
+  const x = (b) => ((b + 0.5) / n) * ancho;
+  for (const k of ks) svg.append(svgEl("line", { x1: 0, y1: y(k), x2: ancho, y2: y(k), stroke: "#262D38" }));
+  const radio = Math.max(2, Math.min(5, (ancho / n) * 0.35));
+  for (const s of r.secuencia) {
+    svg.append(svgEl("circle", { cx: x(s.bloque), cy: y(s.k_optimo), r: radio + 2, fill: "none", stroke: "#5AA9FF", "stroke-width": 1.5 }));
+    svg.append(svgEl("circle", { cx: x(s.bloque), cy: y(s.k_bandido), r: radio, fill: "#C4A1FF" }));
+    if (s.barrido_reinicio) {
+      const cx = x(s.bloque);
+      svg.append(svgEl("path", { d: `M${cx - 4},${alto} L${cx + 4},${alto} L${cx},${alto - 8} Z`, fill: "#C9D1D9" }));
+    }
+  }
+  const aciertos = r.secuencia.filter((s) => s.k_bandido === s.k_optimo).length;
+  svg.setAttribute("aria-label", `k elegido por la IA en ${n} bloques; coincide con el óptimo en ${aciertos}`);
+  $("#ia-y").replaceChildren(...[...ks].reverse().map((k) => el("span", { text: k })));
+  $("#ia-x").replaceChildren(el("span", { text: "bloque 0" }), el("span", { text: `${aciertos} de ${n} bloques con el k óptimo` }), el("span", { text: n - 1 }));
+}
+
+// Atajos en Codificar para usar el k de la IA o el del barrido.
+function actualizarSugerencias() {
+  const caja = $("#sugerencias");
+  const botones = [];
+  if (estado.ia) botones.push(el("button", { type: "button", class: "ia", text: `IA: k = ${estado.ia.k_ia}`, onclick: () => irACodificar(estado.ia.k_ia) }));
+  if (estado.barrido) botones.push(el("button", { type: "button", text: `barrido: k = ${estado.barrido.mejor_k}`, onclick: () => irACodificar(estado.barrido.mejor_k) }));
+  caja.replaceChildren(el("span", { text: "Sugerencias:" }), ...botones);
+  caja.hidden = botones.length === 0;
 }
 
 // ═════════ 3 · Codificar ═════════

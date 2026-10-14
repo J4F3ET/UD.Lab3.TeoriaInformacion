@@ -7,40 +7,34 @@ GitHub (push a main)
 Runner self-hosted (dentro del LXC)  ── job "desplegar"
    │  docker compose -f deploy/compose.yaml -p tic-codec up -d --build
    ▼
-LXC "tic-codec" (Debian, no privilegiado, nesting=1)
- ├─ contenedor tailscale  ── Funnel :443 ──►  https://tic-codec.<tailnet>.ts.net
- ├─ contenedor app: la interfaz src/app.py con gunicorn :5000 (comparte la red del de tailscale)
+LXC (Debian, no privilegiado, nesting=1, /dev/net/tun)
+ ├─ tailscaled (instalado en el LXC)  ── Funnel :443 ──►  https://tic-codec.<tailnet>.ts.net
+ │        └─ proxy → 127.0.0.1:5000
+ ├─ contenedor app: la interfaz src/app.py con gunicorn, publicada en 127.0.0.1:5000
  └─ contenedor limpieza: borra data/gui/<id>/ viejos
 ```
 
 **Por qué 443:** Funnel solo acepta los puertos 443, 8443 y 10000. Con 443 la URL pública es
 `https://tic-codec.<tailnet>.ts.net` sin `:puerto`, con certificado TLS válido que Tailscale
-emite y renueva solo. No se abre ningún puerto en el router ni en el LXC.
+emite y renueva solo. No se abre ningún puerto en el router, y la app solo escucha en `127.0.0.1` del LXC.
+
+**Por qué Tailscale en el LXC y no en un contenedor:** con un contenedor sidecar, la app comparte
+su red; cada vez que ese contenedor se reiniciaba, la app quedaba en una red muerta y Funnel daba
+**502**. Instalado en el LXC, Tailscale y la app se reinician sin afectarse.
 
 ---
 
-## 1. Tailscale
+## 1. Tailscale (consola, una sola vez)
 
-Funnel ya redirige el 443 público al puerto de la app (`deploy/tailscale/serve.json` → `127.0.0.1:5000`);
-no hace falta auth key, secret ni etiquetas. Solo:
+En https://login.tailscale.com/admin:
 
-1. En https://login.tailscale.com/admin/dns: **MagicDNS** y **HTTPS Certificates** activados
-   (Funnel necesita el certificado).
+1. **DNS:** **MagicDNS** y **HTTPS Certificates** activados (Funnel necesita el certificado).
 2. Que tu política permita Funnel. La política por defecto ya lo trae
    (`"nodeAttrs": [{"target": ["autogroup:member"], "attr": ["funnel"]}]`); si la editaste y lo
    quitaste, vuelve a agregarlo.
-3. Tras el **primer despliegue** (paso 5), abre el enlace de inicio de sesión que imprime el
-   contenedor de Tailscale. Sale en el log del job, paso "Estado de Tailscale / Funnel" (con un
-   aviso amarillo), o en el LXC con:
-   ```bash
-   pct exec 111 -- docker logs tic-codec-tailscale-1 2>&1 | grep -A1 "visit"
-   ```
-   La sesión queda guardada en el volumen `tic-codec_ts-state`, así que solo se hace una vez.
-4. Opcional: en la consola de Tailscale, en el menú del nodo `tic-codec`, **Disable key expiry**
-   para que la sesión no caduque a los 180 días.
 
-> Automatizarlo sin abrir el enlace: genera una auth key (no efímera) y guárdala en GitHub como
-> secret `TS_AUTHKEY`; el workflow ya la pasa si existe.
+No hace falta auth key, secret ni etiquetas: el inicio de sesión se hace una vez con un enlace
+(paso 3b).
 
 ## 2. Crear el LXC en Proxmox
 
@@ -92,19 +86,19 @@ dentro del LXC:
 Es re-ejecutable: si el runner ya está registrado solo se asegura de que el servicio esté
 instalado y activo (`FORZAR=1` para registrarlo de nuevo).
 
-**Pasos** (cambia `210` por tu CTID):
+**Pasos** (cambia `111` por tu CTID):
 
 1. Copia el script al LXC desde el host de Proxmox (el repo es privado, no se puede bajar con
    `curl`; hace falta el repo clonado en el host, o pega el archivo a mano en el LXC).
    Con la opción B ya está en `/root/` y te saltas esto.
    ```bash
-   pct push 210 deploy/proxmox/instalar-runner.sh /root/instalar-runner.sh --perms 0755
+   pct push 111 deploy/proxmox/instalar-runner.sh /root/instalar-runner.sh --perms 0755
    ```
 2. GitHub → repo → **Settings → Actions → Runners → New self-hosted runner** → copia solo
    el **token** (dura 1 hora).
 3. Ejecuta:
    ```bash
-   pct exec 210 -- bash /root/instalar-runner.sh https://github.com/J4F3ET/UD.Lab3.TeoriaInformacion TOKEN_AQUI
+   pct exec 111 -- bash /root/instalar-runner.sh https://github.com/J4F3ET/UD.Lab3.TeoriaInformacion TOKEN_AQUI
    ```
 4. Debe terminar con `✔ Runner "…" activo como servicio actions.runner.…` y salir **Idle** en
    Settings → Actions → Runners, con las etiquetas `self-hosted, linux, tic-codec, proxmox`.
@@ -112,6 +106,23 @@ instalado y activo (`FORZAR=1` para registrarlo de nuevo).
 > El repo es privado, así que nadie de afuera puede mandar código a ese runner. Si algún día
 > se vuelve público, el job de despliegue igual nunca corre en `pull_request`, pero conviene
 > activar *Require approval for all outside collaborators* en Settings → Actions.
+
+## 3b. Instalar Tailscale en el LXC y activar Funnel
+
+En el host de Proxmox, con el repo (o el script) a mano:
+
+```bash
+bash deploy/proxmox/instalar-tailscale.sh 111
+```
+
+1. Habilita `/dev/net/tun` para el LXC (agrega dos líneas a `/etc/pve/lxc/111.conf`, deja un
+   respaldo en `/root/111.conf.bak` y reinicia el LXC una vez).
+2. Instala Tailscale desde el repositorio oficial.
+3. `tailscale up --hostname=tic-codec`: la primera vez imprime un enlace; ábrelo y autoriza el
+   equipo. La sesión queda en `/var/lib/tailscale` del LXC.
+4. `tailscale funnel --bg 5000`: queda guardado y sobrevive reinicios del LXC.
+
+Recomendado: en la consola, menú `⋯` de `tic-codec` → **Disable key expiry**.
 
 ## 4. Variables en GitHub (opcional)
 
@@ -121,7 +132,6 @@ instalado y activo (`FORZAR=1` para registrarlo de nuevo).
 |---|---|---|
 | Variable | `TS_HOSTNAME` | nombre del nodo; define la URL. Defecto `tic-codec` |
 | Variable | `URL_PUBLICA` | `https://tic-codec.<tailnet>.ts.net` — sale como enlace en cada despliegue |
-| Secret | `TS_AUTHKEY` | solo si no quieres abrir el enlace de inicio de sesión (paso 1.3) |
 
 ## 5. Desplegar
 
@@ -129,15 +139,15 @@ Cualquier push a `main` (o **Actions → CI/CD → Run workflow**) hace:
 
 1. **pruebas** (`ubuntu-latest`): `pytest` de la interfaz (`tests/test_app.py`: subir → codificar → decodificar) y `docker build` para confirmar que la imagen construye.
 2. **desplegar** (runner del LXC): `docker compose up -d --build`, espera a que el healthcheck de
-   la app quede `healthy`, muestra `tailscale funnel status` y borra imágenes viejas.
+   la app quede `healthy`, muestra `tailscale funnel status` (del Tailscale del LXC) y borra
+   imágenes viejas. Si el Funnel está apagado, el job lo avisa en amarillo.
 
-La primera vez, en el log de "Estado de Tailscale / Funnel" debe aparecer la URL
-`https://tic-codec.<tailnet>.ts.net (Funnel on)`. El primer acceso puede tardar ~1 min
-mientras se emite el certificado.
+En el log de "Estado de Tailscale / Funnel" debe aparecer
+`https://tic-codec.<tailnet>.ts.net (Funnel on)`.
 
 ## Operación
 
-Desde el host de Proxmox: `pct enter 210`, luego `su - deployer` y
+Desde el host de Proxmox: `pct enter 111`, luego `su - deployer` y
 `cd ~/actions-runner/_work/UD.Lab3.TeoriaInformacion/UD.Lab3.TeoriaInformacion`:
 
 ```bash
@@ -147,7 +157,7 @@ docker compose -f deploy/compose.yaml -p tic-codec ps
 docker compose -f deploy/compose.yaml -p tic-codec logs -f app
 ```
 ```bash
-docker compose -f deploy/compose.yaml -p tic-codec exec tailscale tailscale funnel status
+tailscale funnel status
 ```
 
 Ajustes (variables de entorno del job o de un `.env` junto a `compose.yaml`):
@@ -188,8 +198,13 @@ y abrir http://127.0.0.1:5000. Con Docker, igual que en producción:
   funciona; en versiones viejas usa `STORAGE=local-lvm` o configura `"storage-driver": "fuse-overlayfs"`.
 - **Funnel no aparece / `funnel not available`.** Tu política no tiene el `nodeAttrs` con
   `funnel`, o HTTPS Certificates está desactivado en el tailnet.
+- **Funnel da 502.** La app no responde en `127.0.0.1:5000` del LXC: revisa
+  `docker compose … ps` y `curl -I http://127.0.0.1:5000/` dentro del LXC.
+- **Funnel da error de TLS / no conecta pero `tailscale funnel status` dice "Funnel on".**
+  El relay de Funnel no está llegando al nodo (en `journalctl -u tailscaled` aparecen líneas
+  `Drop: TCP … no rules matched`). Vuelve a correr `instalar-tailscale.sh 111`, que apaga y
+  enciende el Funnel para que se anuncie de nuevo.
 - **El nodo aparece como `tic-codec-1`.** Quedó un nodo viejo con el mismo nombre: bórralo en la
-  consola de Tailscale y reinicia el contenedor `tailscale`.
-- **Cambiar de tailnet o regenerar identidad:** `docker compose … down` y
-  `docker volume rm tic-codec_ts-state`; en el próximo despliegue vuelve a
-  salir el enlace de inicio de sesión.
+  consola de Tailscale y corre `tailscale set --hostname=tic-codec` en el LXC.
+- **Cambiar de tailnet o regenerar identidad:** en el LXC, `tailscale logout` y vuelve a correr
+  `instalar-tailscale.sh`.

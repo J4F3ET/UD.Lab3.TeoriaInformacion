@@ -19,24 +19,28 @@ emite y renueva solo. No se abre ningún puerto en el router ni en el LXC.
 
 ---
 
-## 1. Tailscale (una sola vez, en https://login.tailscale.com/admin)
+## 1. Tailscale
 
-1. **DNS → MagicDNS** activado y **HTTPS Certificates** activado.
-2. **Access controls** (política del tailnet): declarar la etiqueta y darle permiso de Funnel.
-   ```jsonc
-   "tagOwners": {
-     "tag:tic-codec": ["autogroup:admin"]
-   },
-   "nodeAttrs": [
-     { "target": ["tag:tic-codec"], "attr": ["funnel"] }
-   ]
+Funnel ya redirige el 443 público al puerto de la app (`deploy/tailscale/serve.json` → `127.0.0.1:5000`);
+no hace falta auth key, secret ni etiquetas. Solo:
+
+1. En https://login.tailscale.com/admin/dns: **MagicDNS** y **HTTPS Certificates** activados
+   (Funnel necesita el certificado).
+2. Que tu política permita Funnel. La política por defecto ya lo trae
+   (`"nodeAttrs": [{"target": ["autogroup:member"], "attr": ["funnel"]}]`); si la editaste y lo
+   quitaste, vuelve a agregarlo.
+3. Tras el **primer despliegue** (paso 5), abre el enlace de inicio de sesión que imprime el
+   contenedor de Tailscale. Sale en el log del job, paso "Estado de Tailscale / Funnel" (con un
+   aviso amarillo), o en el LXC con:
+   ```bash
+   pct exec 111 -- docker logs tic-codec-tailscale-1 2>&1 | grep -A1 "visit"
    ```
-   Si ya tienes un bloque `nodeAttrs`, agrega solo el objeto. Si tu política tiene
-   `grants`/`acls` restrictivos no hace falta abrir nada: Funnel entra por fuera del tailnet.
-3. **Settings → Keys → Generate auth key**: *Reusable* no, *Ephemeral* **no**, *Tags*
-   `tag:tic-codec`. Copia el `tskey-auth-…` — va a GitHub en el paso 4.
-   (La llave solo se usa en el primer arranque; la identidad queda en el volumen `ts-state`,
-   y los nodos con etiqueta no expiran.)
+   La sesión queda guardada en el volumen `tic-codec_ts-state`, así que solo se hace una vez.
+4. Opcional: en la consola de Tailscale, en el menú del nodo `tic-codec`, **Disable key expiry**
+   para que la sesión no caduque a los 180 días.
+
+> Automatizarlo sin abrir el enlace: genera una auth key (no efímera) y guárdala en GitHub como
+> secret `TS_AUTHKEY`; el workflow ya la pasa si existe.
 
 ## 2. Crear el LXC en Proxmox
 
@@ -109,18 +113,15 @@ instalado y activo (`FORZAR=1` para registrarlo de nuevo).
 > se vuelve público, el job de despliegue igual nunca corre en `pull_request`, pero conviene
 > activar *Require approval for all outside collaborators* en Settings → Actions.
 
-## 4. Secretos y variables en GitHub
+## 4. Variables en GitHub (opcional)
 
 **Settings → Secrets and variables → Actions:**
 
 | Tipo | Nombre | Valor |
 |---|---|---|
-| Secret | `TS_AUTHKEY` | la llave `tskey-auth-…` del paso 1.3 |
-| Variable (opcional) | `TS_HOSTNAME` | nombre del nodo; define la URL. Defecto `tic-codec` |
-| Variable (opcional) | `URL_PUBLICA` | `https://tic-codec.<tailnet>.ts.net` — sale como enlace en cada despliegue |
-
-Además, en **Settings → Environments** se crea solo el entorno `produccion` en el primer
-despliegue; ahí puedes exigir aprobación manual o limitarlo a la rama `main`.
+| Variable | `TS_HOSTNAME` | nombre del nodo; define la URL. Defecto `tic-codec` |
+| Variable | `URL_PUBLICA` | `https://tic-codec.<tailnet>.ts.net` — sale como enlace en cada despliegue |
+| Secret | `TS_AUTHKEY` | solo si no quieres abrir el enlace de inicio de sesión (paso 1.3) |
 
 ## 5. Desplegar
 
@@ -185,10 +186,10 @@ y abrir http://127.0.0.1:5000. Con Docker, igual que en producción:
   de `containerd.io` con `apt-mark hold`.
 - **Disco raíz en ZFS y Docker se queja de `overlay`.** Con ZFS ≥ 2.2 (Proxmox 8.1+) overlay
   funciona; en versiones viejas usa `STORAGE=local-lvm` o configura `"storage-driver": "fuse-overlayfs"`.
-- **Funnel no aparece / `funnel not available`.** Falta el `nodeAttrs` con `funnel` para
-  `tag:tic-codec`, o HTTPS Certificates está desactivado en el tailnet.
+- **Funnel no aparece / `funnel not available`.** Tu política no tiene el `nodeAttrs` con
+  `funnel`, o HTTPS Certificates está desactivado en el tailnet.
 - **El nodo aparece como `tic-codec-1`.** Quedó un nodo viejo con el mismo nombre: bórralo en la
   consola de Tailscale y reinicia el contenedor `tailscale`.
 - **Cambiar de tailnet o regenerar identidad:** `docker compose … down` y
-  `docker volume rm tic-codec_ts-state`; el próximo despliegue usa `TS_AUTHKEY` de nuevo
-  (genera una llave nueva si la anterior expiró).
+  `docker volume rm tic-codec_ts-state`; en el próximo despliegue vuelve a
+  salir el enlace de inicio de sesión.

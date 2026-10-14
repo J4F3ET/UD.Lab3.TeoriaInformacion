@@ -60,6 +60,9 @@ jobs:
 
       - name: Estado de Tailscale / Funnel
         run: |
+          if $COMPOSE exec -T tailscale tailscale status --self --peers=false | grep -q "Log in at"; then
+            echo "::warning title=Tailscale sin sesión::Abre el enlace de 'Log in at' de abajo una sola vez para publicar la app con Funnel."
+          fi
           $COMPOSE exec -T tailscale tailscale status --self --peers=false || true
           $COMPOSE exec -T tailscale tailscale funnel status || true
 

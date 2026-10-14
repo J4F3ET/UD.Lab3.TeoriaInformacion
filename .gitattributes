@@ -1,0 +1,6 @@
+# Los scripts y configs se ejecutan en Linux (LXC / contenedores): siempre LF.
+*.sh        text eol=lf
+Dockerfile  text eol=lf
+*.yaml      text eol=lf
+*.yml       text eol=lf
+deploy/**   text eol=lf

@@ -26,8 +26,9 @@ EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/', timeout=4)"
 
+# Solo es alcanzable desde 127.0.0.1 del LXC (Tailscale Funnel), por eso se confía en X-Forwarded-*.
 # Un solo proceso (el códec usa mucha RAM) con hilos para atender varias peticiones;
 # timeout alto porque codificar un archivo grande con k grande tarda minutos.
 CMD ["gunicorn", "--chdir", "src", "app:app", \
      "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "4", \
-     "--timeout", "900", "--forwarded-allow-ips", "127.0.0.1", "--access-logfile", "-"]
+     "--timeout", "900", "--forwarded-allow-ips", "*", "--access-logfile", "-"]

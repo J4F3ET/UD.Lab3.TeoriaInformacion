@@ -39,8 +39,6 @@ jobs:
       cancel-in-progress: false
     env:
       COMPOSE: docker compose -f deploy/compose.yaml -p tic-codec
-      TS_AUTHKEY: ${{ secrets.TS_AUTHKEY }}
-      TS_HOSTNAME: ${{ vars.TS_HOSTNAME || 'tic-codec' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -59,12 +57,16 @@ jobs:
           exit 1
 
       - name: Estado de Tailscale / Funnel
+        # Tailscale está instalado en el LXC (no en un contenedor); ver deploy/README.md.
         run: |
-          if $COMPOSE exec -T tailscale tailscale status --self --peers=false | grep -q "Log in at"; then
-            echo "::warning title=Tailscale sin sesión::Abre el enlace de 'Log in at' de abajo una sola vez para publicar la app con Funnel."
+          if ! command -v tailscale >/dev/null; then
+            echo "::warning title=Sin Tailscale::Tailscale no está instalado en el LXC; la app solo responde en 127.0.0.1:5000."
+            exit 0
           fi
-          $COMPOSE exec -T tailscale tailscale status --self --peers=false || true
-          $COMPOSE exec -T tailscale tailscale funnel status || true
+          tailscale funnel status || true
+          if ! tailscale funnel status 2>/dev/null | grep -q "Funnel on"; then
+            echo "::warning title=Funnel apagado::En el LXC, como root: tailscale funnel --bg 5000"
+          fi
 
       - name: Limpiar imágenes viejas
         if: always()

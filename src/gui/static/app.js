@@ -467,6 +467,7 @@ function pintarDurante(d) {
   $("#durante-y").replaceChildren(...ticks(lo, hi, hi - lo < 6 ? 1 : 0));
   $("#durante-y2").replaceChildren(...ticks(rlo, rhi, 2));
   $("#durante-sub").textContent = `${n} bloques consecutivos del archivo`;
+  $("#durante-x").replaceChildren(el("span", { text: "0" }), el("span", { text: Math.floor((n - 1) / 2) }), el("span", { text: n - 1 }));
 
   const kl = d.map((b) => b.KL_bloque_vs_global);
   const iMax = kl.indexOf(Math.max(...kl));

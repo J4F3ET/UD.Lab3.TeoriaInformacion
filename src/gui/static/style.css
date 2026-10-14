@@ -183,9 +183,10 @@ tr.mejor td.k, tr.mejor td.razon { color: var(--resalte); font-weight: 600; }
 .triangulo { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 9px solid var(--serie-3); display: inline-block; }
 .punto.acierto { background: var(--ia); box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--acento); width: 8px; height: 8px; margin: 0 2px; }
 .franja { width: 14px; height: 12px; border-radius: 2px; background: rgba(196, 161, 255, 0.16); border: 1px dashed rgba(196, 161, 255, 0.5); display: inline-block; }
-.grafica-ia { display: flex; align-items: center; gap: 4px; }
-.grafica-ia .grafica { flex: 1; min-width: 0; }
-.eje-titulo-y { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 12px; color: var(--tenue); white-space: nowrap; }
+.grafica-titulada { display: flex; align-items: center; gap: 4px; }
+.grafica-titulada > .grafica { flex: 1; min-width: 0; }
+.eje-titulo-y { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 12px; color: var(--tenue); text-align: center; max-height: 240px; width: 20px; flex: none; }
+.eje-titulo-y.der { transform: none; }
 .eje-titulo-x { text-align: center; font-size: 12px; color: var(--tenue); margin-top: -8px; }
 .como-leer { border: 1px solid var(--borde); border-radius: 10px; padding: 12px 16px; font-size: 14px; }
 .como-leer summary { cursor: pointer; font-weight: 500; min-height: 28px; }

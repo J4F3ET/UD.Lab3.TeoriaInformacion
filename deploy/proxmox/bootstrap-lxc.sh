@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
 # Prepara el LXC (Debian) por dentro: Docker Engine + plugin compose desde el
-# repositorio oficial y un usuario "deployer" (grupo docker) para el runner.
+# repositorio oficial. El usuario del runner lo crea instalar-runner.sh.
 # Se ejecuta como root dentro del contenedor; crear-lxc.sh lo llama solo.
 # Es idempotente: se puede volver a correr sin romper nada.
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
-
-USUARIO="${USUARIO:-deployer}"
 
 echo "» Paquetes base…"
 apt-get update -qq
@@ -32,11 +30,6 @@ cat > /etc/docker/daemon.json <<'EOF'
 EOF
 systemctl enable --now docker
 systemctl restart docker
-
-echo "» Usuario $USUARIO…"
-id "$USUARIO" &>/dev/null || useradd --create-home --shell /bin/bash "$USUARIO"
-usermod -aG docker "$USUARIO"
-[ -f /root/instalar-runner.sh ] && install -m 0755 /root/instalar-runner.sh /opt/instalar-runner.sh
 
 echo "» Prueba de Docker…"
 if docker run --rm hello-world >/dev/null; then

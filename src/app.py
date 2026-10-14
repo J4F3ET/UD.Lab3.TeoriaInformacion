@@ -1,0 +1,306 @@
+#!/usr/bin/env python3
+"""
+app.py — Interfaz gráfica (backend Flask) del códec TIC
+
+  python src/app.py            →  http://127.0.0.1:5000
+
+La interfaz no reimplementa nada del códec: cada endpoint llama a las mismas
+clases que usa el CLI (CodecTIC, GeneradorFuentes) y devuelve sus reportes
+como JSON. Lo que cada etapa produce queda en data/gui/<id>/, un directorio
+por fuente cargada:
+
+  data/gui/<id>/
+    meta.json              nombre original y tamaño de la fuente
+    <fuente>               el archivo subido o generado
+    <stem>.k16.tic         lo que produce /api/codificar (uno por k y pérdida)
+    <stem>.k16.json        su reporte antes/durante/después
+    <stem>.k16.rec<ext>    lo que produce /api/decodificar
+
+Endpoints (todos responden JSON salvo /api/descargar):
+  POST /api/subir         multipart "archivo"                  → fuente nueva
+  POST /api/generar       {tipo, mb, semilla}                  → fuente sintética nueva
+  POST /api/barrido       {id, conjunto | ks}                  → métricas "antes" por k
+  POST /api/codificar     {id, k, perdida, bloques}            → reporte completo
+  POST /api/decodificar   {id, tic}  o multipart "archivo"     → cabecera + verificación
+  GET  /api/descargar/<id>/<nombre>                            → el archivo
+"""
+from __future__ import annotations
+
+import hashlib, json, math, mimetypes, os, sys, time, uuid
+from pathlib import Path
+
+import numpy as np
+from flask import Flask, jsonify, render_template, request, send_from_directory
+from werkzeug.utils import secure_filename
+
+# tic_codec.py vive en la misma carpeta; se importa como módulo, no se copia nada.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from tic_codec import K_BASE, K_EXT, CodecTIC, GeneradorFuentes  # noqa: E402
+
+RAIZ = Path(__file__).resolve().parent.parent
+TRABAJO = RAIZ / "data" / "gui"   # data/* ya está en .gitignore
+GUI = Path(__file__).resolve().parent / "gui"
+
+app = Flask(__name__, template_folder=str(GUI / "templates"), static_folder=str(GUI / "static"))
+app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 ** 3  # 2 GB por archivo subido
+
+
+# ═══════════════════════════ utilidades ═══════════════════════════
+class ErrorAPI(Exception):
+    """Error esperable (parámetro inválido, id inexistente...): se responde con 400/404."""
+    def __init__(self, mensaje: str, estado: int = 400):
+        super().__init__(mensaje)
+        self.estado = estado
+
+
+@app.errorhandler(ErrorAPI)
+def _error_api(e: ErrorAPI):
+    return jsonify(error=str(e)), e.estado
+
+
+@app.errorhandler(ValueError)
+def _error_valor(e: ValueError):
+    # El códec lanza ValueError ante entradas inválidas (p. ej. "no es un archivo TIC1").
+    return jsonify(error=str(e)), 400
+
+
+def a_json(x):
+    """Convierte el reporte a algo que JSON.parse acepte: los numpy pasan a
+    tipos de Python y los float no finitos (PSNR = inf sin error) a null."""
+    if isinstance(x, dict):
+        return {k: a_json(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [a_json(v) for v in x]
+    if isinstance(x, np.ndarray):
+        return a_json(x.tolist())
+    if isinstance(x, np.generic):
+        x = x.item()
+    if isinstance(x, float) and not math.isfinite(x):
+        return None
+    return x
+
+
+def sha256_archivo(ruta: Path) -> str:
+    h = hashlib.sha256()
+    with open(ruta, "rb") as f:
+        for trozo in iter(lambda: f.read(1 << 20), b""):
+            h.update(trozo)
+    return h.hexdigest()
+
+
+def tipo_de(nombre: str) -> str:
+    """Tipo de fuente aproximado por la extensión, solo para mostrarlo."""
+    mime = mimetypes.guess_type(nombre)[0] or ""
+    if mime.startswith(("image/", "audio/", "video/", "text/")):
+        return mime.split("/")[0]
+    return "binario"
+
+
+def carpeta(id_: str) -> Path:
+    # El id lo genera el servidor (hex); cualquier otra cosa se rechaza para no salir de TRABAJO.
+    if not id_ or not all(c in "0123456789abcdef" for c in id_):
+        raise ErrorAPI("id inválido")
+    d = TRABAJO / id_
+    if not d.is_dir():
+        raise ErrorAPI("fuente no encontrada", 404)
+    return d
+
+
+def leer_meta(d: Path) -> dict:
+    return json.loads((d / "meta.json").read_text(encoding="utf-8"))
+
+
+def ruta_fuente(id_: str) -> tuple[Path, dict]:
+    d = carpeta(id_)
+    meta = leer_meta(d)
+    return d / meta["archivo"], meta
+
+
+def nueva_fuente(nombre: str) -> tuple[str, Path]:
+    id_ = uuid.uuid4().hex[:12]
+    d = TRABAJO / id_
+    d.mkdir(parents=True)
+    return id_, d / (secure_filename(nombre) or "fuente.bin")
+
+
+def registrar(id_: str, ruta: Path, nombre: str, origen: str) -> dict:
+    meta = {
+        "id": id_, "nombre": nombre, "archivo": ruta.name, "origen": origen,
+        "tamano_B": ruta.stat().st_size, "tipo": tipo_de(nombre), "sha256": sha256_archivo(ruta),
+    }
+    (ruta.parent / "meta.json").write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+    return meta
+
+
+def url_descarga(id_: str, nombre: str) -> str:
+    return f"/api/descargar/{id_}/{nombre}"
+
+
+def entero(datos: dict, clave: str, defecto: int, minimo: int, maximo: int) -> int:
+    try:
+        v = int(datos.get(clave, defecto))
+    except (TypeError, ValueError):
+        raise ErrorAPI(f"{clave} debe ser un entero")
+    if not minimo <= v <= maximo:
+        raise ErrorAPI(f"{clave} debe estar entre {minimo} y {maximo}")
+    return v
+
+
+def validar_k(k: int) -> int:
+    if k <= 0 or k % 8:
+        raise ErrorAPI(f"k = {k} no es múltiplo positivo de 8")
+    return k
+
+
+def curva_rango_frecuencia(frecuencias: np.ndarray, puntos: int = 200) -> list[list[float]]:
+    """Rango-frecuencia (log-log) muestreado en ~`puntos` rangos espaciados
+    logarítmicamente, para no mandar U valores al navegador."""
+    p = np.sort(frecuencias)[::-1] / frecuencias.sum()
+    rangos = np.unique(np.geomspace(1, len(p), num=min(puntos, len(p))).astype(int))
+    return [[int(r), float(p[r - 1])] for r in rangos]
+
+
+# ═══════════════════════════ páginas ═══════════════════════════
+@app.get("/")
+def inicio():
+    return render_template("index.html")
+
+
+# ═══════════════════════════ fuente ═══════════════════════════
+@app.post("/api/subir")
+def subir():
+    f = request.files.get("archivo")
+    if f is None or not f.filename:
+        raise ErrorAPI("falta el archivo (campo 'archivo')")
+    id_, ruta = nueva_fuente(f.filename)
+    f.save(ruta)
+    if ruta.stat().st_size == 0:
+        raise ErrorAPI("el archivo está vacío")
+    return jsonify(registrar(id_, ruta, f.filename, "subido"))
+
+
+@app.post("/api/generar")
+def generar():
+    datos = request.get_json(silent=True) or {}
+    tipo = datos.get("tipo", "estructurado")
+    if tipo not in ("uniforme", "no_uniforme", "estructurado"):
+        raise ErrorAPI("tipo: uniforme | no_uniforme | estructurado")
+    try:
+        mb = float(datos.get("mb", 2))
+    except (TypeError, ValueError):
+        raise ErrorAPI("mb debe ser un número")
+    if not 0 < mb <= 512:
+        raise ErrorAPI("mb debe estar entre 0 y 512")
+    semilla = entero(datos, "semilla", 0, 0, 2 ** 32 - 1)
+    nombre = f"{tipo}_{mb:g}MB_s{semilla}.bin"
+    id_, ruta = nueva_fuente(nombre)
+    GeneradorFuentes.generar(tipo, str(ruta), mb, semilla)
+    return jsonify(registrar(id_, ruta, nombre, "sintético"))
+
+
+@app.get("/api/fuente/<id_>")
+def fuente(id_: str):
+    return jsonify(leer_meta(carpeta(id_)))
+
+
+# ═══════════════════════════ barrido ═══════════════════════════
+@app.post("/api/barrido")
+def barrido():
+    datos = request.get_json(silent=True) or {}
+    ruta, _ = ruta_fuente(datos.get("id", ""))
+    if datos.get("ks"):
+        try:
+            ks = [validar_k(int(v)) for v in datos["ks"]]
+        except (TypeError, ValueError):
+            raise ErrorAPI("ks debe ser una lista de enteros")
+    else:
+        ks = K_BASE + (K_EXT if datos.get("conjunto") == "extendido" else [])
+    t0 = time.time()
+    resultados = CodecTIC().barrido(str(ruta), ks)
+    mejor = max(resultados, key=lambda r: r["razon_estimada"])
+    return jsonify(a_json({
+        "resultados": resultados,
+        "mejor_k": mejor["k_bits"],
+        "tiempo_s": time.time() - t0,
+    }))
+
+
+# ═══════════════════════════ codificar ═══════════════════════════
+@app.post("/api/codificar")
+def codificar():
+    datos = request.get_json(silent=True) or {}
+    id_ = datos.get("id", "")
+    ruta, meta = ruta_fuente(id_)
+    k = validar_k(entero(datos, "k", 8, 8, 1 << 20))
+    perdida = entero(datos, "perdida", 0, 0, 7)
+    bloques = entero(datos, "bloques", 50, 1, 1000)
+
+    base = f"{Path(meta['archivo']).stem}.k{k}" + (f".p{perdida}" if perdida else "")
+    tic, rep = ruta.parent / f"{base}.tic", ruta.parent / f"{base}.json"
+    reporte = CodecTIC(bloques=bloques).codificar(str(ruta), str(tic), k, perdida, reporte=str(rep))
+
+    return jsonify(a_json({
+        "reporte": reporte.a_dict(),
+        "entropia_por_bit": reporte.entropia_por_bit,
+        "rango_frecuencia": curva_rango_frecuencia(reporte.frecuencias),
+        "tic": {"nombre": tic.name, "tamano_B": tic.stat().st_size, "url": url_descarga(id_, tic.name)},
+        "reporte_json": {"nombre": rep.name, "url": url_descarga(id_, rep.name)},
+    }))
+
+
+# ═══════════════════════════ decodificar ═══════════════════════════
+@app.post("/api/decodificar")
+def decodificar():
+    codec = CodecTIC()
+    original = None  # la fuente de la sesión, si el .tic salió de ella, para comparar byte a byte
+    if "archivo" in request.files:
+        f = request.files["archivo"]
+        if not f.filename:
+            raise ErrorAPI("falta el archivo .tic")
+        id_, tic = nueva_fuente(f.filename)
+        f.save(tic)
+        extension = ".bin"
+    else:
+        datos = request.get_json(silent=True) or {}
+        id_ = datos.get("id", "")
+        d = carpeta(id_)
+        tic = d / secure_filename(datos.get("tic", ""))
+        if tic.suffix != ".tic" or not tic.is_file():
+            raise ErrorAPI("archivo .tic no encontrado", 404)
+        meta = leer_meta(d)
+        original = d / meta["archivo"]
+        extension = Path(meta["archivo"]).suffix or ".bin"
+
+    cabecera = codec.leer_cabecera(str(tic))
+    salida = tic.with_name(f"{tic.stem}.rec{extension}")
+    t0 = time.time()
+    rec = codec.decodificar(str(tic), str(salida))
+    t_dec = time.time() - t0
+
+    respuesta = {
+        "id": id_,
+        "cabecera": vars(cabecera),
+        "tamano_tic_B": tic.stat().st_size,
+        "tamano_reconstruido_B": int(len(rec)),
+        "sha256_reconstruido": hashlib.sha256(rec.tobytes()).hexdigest(),
+        "tiempo_s": t_dec,
+        "reconstruido": {"nombre": salida.name, "url": url_descarga(id_, salida.name)},
+    }
+    respuesta["verificacion_sha256"] = respuesta["sha256_reconstruido"] == cabecera.sha256
+    if original is not None and original.is_file():
+        # Con pérdida la huella guardada es la de los datos cuantizados, así que coincide
+        # aunque el reconstruido difiera del original; esta comparación lo deja explícito.
+        respuesta["identico_al_original"] = bool(np.array_equal(rec, np.fromfile(original, np.uint8)))
+    return jsonify(a_json(respuesta))
+
+
+# ═══════════════════════════ descargas ═══════════════════════════
+@app.get("/api/descargar/<id_>/<nombre>")
+def descargar(id_: str, nombre: str):
+    # send_from_directory rechaza rutas que intenten salir de la carpeta.
+    return send_from_directory(carpeta(id_), nombre, as_attachment=True)
+
+
+if __name__ == "__main__":
+    TRABAJO.mkdir(parents=True, exist_ok=True)
+    app.run(host="127.0.0.1", port=int(os.environ.get("PORT", 5000)), debug=False, threaded=True)

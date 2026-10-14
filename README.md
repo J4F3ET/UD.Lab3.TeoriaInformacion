@@ -94,6 +94,26 @@ python src/tic_codec.py decodificar reports/prueba.tic reports/salida.bin
 
 Requisitos: `numpy` (obligatorio), `matplotlib` (solo si se usa `--grafica`), `soundfile` (solo para preparar fuentes de audio — decodificar/convertir formatos antes de pasárselas al códec, no lo usa `tic_codec.py` directamente).
 
+## Interfaz gráfica (en construcción)
+
+`src/app.py` es un backend Flask que expone el mismo códec como API JSON; la interfaz web (en `src/gui/`) la consume. No reimplementa nada: cada endpoint llama a `CodecTIC` / `GeneradorFuentes`.
+
+```bash
+pip install -r requirements.txt
+python src/app.py
+```
+
+Abre http://127.0.0.1:5000. Lo que se sube o genera queda en `data/gui/<id>/` (ignorado por git).
+
+| Endpoint | Entrada | Devuelve |
+|---|---|---|
+| `POST /api/subir` | multipart `archivo` | id, nombre, tamaño, tipo, SHA-256 |
+| `POST /api/generar` | `{tipo, mb, semilla}` | lo mismo, para una fuente sintética |
+| `POST /api/barrido` | `{id, conjunto: "base"\|"extendido"}` o `{id, ks: [...]}` | métricas "antes" y razón estimada por k, `mejor_k` |
+| `POST /api/codificar` | `{id, k, perdida, bloques}` | reporte antes/durante/después, entropía por bit, curva rango-frecuencia, enlaces al `.tic` y al JSON |
+| `POST /api/decodificar` | `{id, tic}` o multipart `archivo` (.tic) | cabecera, verificación SHA-256, `identico_al_original`, enlace al reconstruido |
+| `GET /api/descargar/<id>/<nombre>` | — | el archivo |
+
 ## Primera corrida real: imagen JPEG
 Se corrió el códec sobre una foto real (JPEG, 1 486 484 bytes, una de las capturas del tablero de clase). Resultados con k = 8 (`examples/imagen_jpeg/imagen_prueba.json`, gráfica en `imagen_prueba.png`):
 

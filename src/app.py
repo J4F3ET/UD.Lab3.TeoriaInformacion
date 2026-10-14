@@ -43,7 +43,8 @@ TRABAJO = RAIZ / "data" / "gui"   # data/* ya está en .gitignore
 GUI = Path(__file__).resolve().parent / "gui"
 
 app = Flask(__name__, template_folder=str(GUI / "templates"), static_folder=str(GUI / "static"))
-app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 ** 3  # 2 GB por archivo subido
+# 2 GB por archivo subido; en el despliegue público se baja con TIC_MAX_MB (ver deploy/compose.yaml).
+app.config["MAX_CONTENT_LENGTH"] = int(float(os.environ.get("TIC_MAX_MB", 2048)) * 1024 ** 2)
 
 
 # ═══════════════════════════ utilidades ═══════════════════════════

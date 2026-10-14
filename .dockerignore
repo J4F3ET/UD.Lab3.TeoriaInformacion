@@ -11,9 +11,7 @@ examples
 plans
 tests
 deploy
-diagrams/*.png
-diagrams/*.json
-diagrams/*visual-check*
-docs/*.pptx
+diagrams
+docs
 *.tic
 *.bin

@@ -1,8 +1,8 @@
-# Despliegue en el LXC: la app + un sidecar de Tailscale que la publica con
-# Funnel en https://<TS_HOSTNAME>.<tailnet>.ts.net (puerto 443, sin :puerto en la URL).
+# Despliegue en el LXC: la interfaz gráfica (src/app.py) + un sidecar de Tailscale que
+# la publica con Funnel en https://<TS_HOSTNAME>.<tailnet>.ts.net (puerto 443, sin :puerto).
 #
 # La app comparte la red del contenedor de Tailscale (network_mode), así que
-# Tailscale la alcanza en 127.0.0.1:8000 y no se publica ningún puerto en el LXC.
+# Tailscale la alcanza en 127.0.0.1:5000 y no se publica ningún puerto en el LXC.
 #
 # Uso (lo hace el workflow de GitHub Actions en el runner del LXC):
 #   TS_AUTHKEY=tskey-... docker compose -f deploy/compose.yaml -p tic-codec up -d --build
@@ -29,18 +29,34 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
-    image: tic-codec-web:latest
+    image: tic-codec-gui:latest
     network_mode: service:tailscale
     depends_on:
       - tailscale
     environment:
-      TIC_MAX_MB: ${TIC_MAX_MB:-64}
-      TIC_TRABAJOS: ${TIC_TRABAJOS:-1}
-      TIC_TTL_MIN: ${TIC_TTL_MIN:-30}
-    tmpfs:
-      - /tmp:size=${TIC_TMP_MB:-1024}m
+      # Límite de subida en el despliegue público (en local el defecto es 2 GB).
+      TIC_MAX_MB: ${TIC_MAX_MB:-256}
+    volumes:
+      - datos:/app/data
     mem_limit: ${TIC_MEM:-3g}
+    restart: unless-stopped
+
+  # La interfaz guarda cada fuente y sus .tic en data/gui/<id>/ y nunca los borra.
+  # Expuesta a internet eso llenaría el disco: se borran las carpetas viejas cada 10 min.
+  limpieza:
+    image: busybox:stable
+    volumes:
+      - datos:/app/data
+    command:
+      - sh
+      - -c
+      - |
+        while true; do
+          find /app/data/gui -mindepth 1 -maxdepth 1 -type d -mmin +${TIC_TTL_MIN:-120} -exec rm -rf {} +
+          sleep 600
+        done
     restart: unless-stopped
 
 volumes:
   ts-state:
+  datos:

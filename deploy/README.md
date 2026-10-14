@@ -9,7 +9,8 @@ Runner self-hosted (dentro del LXC)  ── job "desplegar"
    ▼
 LXC "tic-codec" (Debian, no privilegiado, nesting=1)
  ├─ contenedor tailscale  ── Funnel :443 ──►  https://tic-codec.<tailnet>.ts.net
- └─ contenedor app (uvicorn :8000, comparte la red del de tailscale)
+ ├─ contenedor app: la interfaz src/app.py con gunicorn :5000 (comparte la red del de tailscale)
+ └─ contenedor limpieza: borra data/gui/<id>/ viejos
 ```
 
 **Por qué 443:** Funnel solo acepta los puertos 443, 8443 y 10000. Con 443 la URL pública es
@@ -97,7 +98,7 @@ despliegue; ahí puedes exigir aprobación manual o limitarlo a la rama `main`.
 
 Cualquier push a `main` (o **Actions → CI/CD → Run workflow**) hace:
 
-1. **pruebas** (`ubuntu-latest`): `pytest` de la API y `docker build` para confirmar que la imagen construye.
+1. **pruebas** (`ubuntu-latest`): `pytest` de la interfaz (`tests/test_app.py`: subir → codificar → decodificar) y `docker build` para confirmar que la imagen construye.
 2. **desplegar** (runner del LXC): `docker compose up -d --build`, espera a que el healthcheck de
    la app quede `healthy`, muestra `tailscale funnel status` y borra imágenes viejas.
 
@@ -120,18 +121,18 @@ docker compose -f deploy/compose.yaml -p tic-codec logs -f app
 docker compose -f deploy/compose.yaml -p tic-codec exec tailscale tailscale funnel status
 ```
 
-Ajustes de la app (variables de entorno del job o de un `.env` junto a `compose.yaml`):
+Ajustes (variables de entorno del job o de un `.env` junto a `compose.yaml`):
 
 | Variable | Defecto | |
 |---|---|---|
-| `TIC_MAX_MB` | `64` | tamaño máximo de subida |
-| `TIC_TRABAJOS` | `1` | codificaciones simultáneas (el resto espera en cola) |
-| `TIC_TTL_MIN` | `30` | minutos que se guardan .tic / gráfica / reporte para descargar |
+| `TIC_MAX_MB` | `256` | tamaño máximo de subida en el despliegue (en local sigue siendo 2 GB) |
+| `TIC_TTL_MIN` | `120` | minutos que se conservan las fuentes, `.tic` y reconstruidos de `data/gui/` |
 | `TIC_MEM` | `3g` | límite de RAM del contenedor app |
-| `TIC_TMP_MB` | `1024` | tamaño del tmpfs donde se procesan los archivos |
 
-Si subes `TIC_MAX_MB`, sube también `TIC_TMP_MB` (entrada + .tic + gráfica caben ahí) y
-`TIC_MEM` (con k grandes el códec usa varias veces el tamaño del archivo en RAM).
+La interfaz guarda todo lo que se sube o genera en el volumen `tic-codec_datos`; el servicio
+`limpieza` borra cada 10 min las carpetas con más de `TIC_TTL_MIN` minutos para que el disco
+del LXC no se llene. Si subes `TIC_MAX_MB`, sube también `TIC_MEM` (con k grandes el códec usa
+varias veces el tamaño del archivo en RAM) y el disco del LXC (`pct resize <CTID> rootfs +10G`).
 
 ## Probar en local sin Proxmox
 
@@ -139,10 +140,10 @@ Si subes `TIC_MAX_MB`, sube también `TIC_TMP_MB` (entrada + .tic + gráfica cab
 pip install -r requirements-dev.txt
 ```
 ```bash
-python -m uvicorn web.app:app --reload
+python src/app.py
 ```
-o con Docker: `docker build -t tic-codec-web . && docker run --rm -p 8000:8000 tic-codec-web`
-y abrir http://localhost:8000.
+y abrir http://127.0.0.1:5000. Con Docker, igual que en producción:
+`docker build -t tic-codec-gui . && docker run --rm -p 5000:5000 tic-codec-gui`.
 
 ## Problemas comunes
 

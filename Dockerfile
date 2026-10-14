@@ -1,4 +1,4 @@
-# Imagen del servidor web del códec TIC (web/app.py sobre src/tic_codec.py).
+# Imagen de la interfaz gráfica del códec TIC (src/app.py, Flask) servida con gunicorn.
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -6,26 +6,28 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     MPLBACKEND=Agg \
-    MPLCONFIGDIR=/tmp/matplotlib \
-    TIC_DATOS=/tmp/tic-web
+    MPLCONFIGDIR=/tmp/matplotlib
 
 WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-RUN useradd --create-home --uid 10001 tic
+RUN useradd --create-home --uid 10001 tic \
+ && mkdir -p /app/data/gui && chown -R tic:tic /app/data
 
 COPY src/ src/
-COPY web/ web/
-COPY diagrams/tic_codec.architecture.html diagrams/tic_codec.dataflow.html diagrams/tic_codec.teoria.html diagrams/
-COPY docs/*.pdf docs/
 
 USER tic
-EXPOSE 8000
+# Lo que se sube o genera queda en data/gui/<id>/ (volumen en compose.yaml).
+VOLUME ["/app/data"]
+EXPOSE 5000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/', timeout=4)"
 
-# --proxy-headers: detrás de Tailscale Funnel el cliente real llega en X-Forwarded-For.
-CMD ["uvicorn", "web.app:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "127.0.0.1"]
+# Un solo proceso (el códec usa mucha RAM) con hilos para atender varias peticiones;
+# timeout alto porque codificar un archivo grande con k grande tarda minutos.
+CMD ["gunicorn", "--chdir", "src", "app:app", \
+     "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "4", \
+     "--timeout", "900", "--forwarded-allow-ips", "127.0.0.1", "--access-logfile", "-"]

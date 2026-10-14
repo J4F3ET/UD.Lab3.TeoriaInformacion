@@ -119,16 +119,35 @@
       <div class="fila-panel">
         <h3>k elegido en cada bloque</h3>
         <div class="leyenda">
-          <span><i class="punto lleno"></i>k de la IA</span>
-          <span><i class="punto hueco"></i>k óptimo del bloque</span>
+          <span><i class="punto lleno"></i>k que eligió la IA</span>
+          <span><i class="punto hueco"></i>mejor k del bloque (medido con los 9)</span>
+          <span><i class="punto acierto"></i>acierto</span>
           <span><i class="triangulo"></i>barrido de reinicio</span>
+          <span><i class="franja"></i>exploración inicial</span>
         </div>
       </div>
-      <div class="grafica">
-        <div class="eje-y" id="ia-y" style="height: 252px;"></div>
-        <svg id="ia-svg" role="img" style="height: 252px;"></svg>
+      <div class="grafica-ia">
+        <div class="eje-titulo-y">k (bits por símbolo)</div>
+        <div class="grafica">
+          <div class="eje-y" id="ia-y" style="height: 252px;"></div>
+          <svg id="ia-svg" role="img" style="height: 252px;"></svg>
+        </div>
       </div>
-      <div class="eje-x-pie" id="ia-x" style="padding: 0 0 0 42px;"></div>
+      <div class="eje-x-pie" id="ia-x" style="padding: 0 0 0 66px;"></div>
+      <div class="eje-titulo-x" id="ia-x-titulo"></div>
+
+      <div class="tarjetas" id="ia-exploracion"></div>
+
+      <details class="como-leer">
+        <summary>Cómo leer esta gráfica</summary>
+        <ul>
+          <li><b>Cada columna es un bloque</b> del archivo, en orden. En cada uno la IA elige un k sin conocer el bloque; después mide cuánto comprimió y aprende de eso.</li>
+          <li><b>La escalera del inicio</b> (franja sombreada) es la exploración inicial: la IA no sabe nada y prueba cada uno de los 9 k una vez.</li>
+          <li><b>Punto morado dentro del círculo azul</b> = acertó el mejor k de ese bloque. Un punto morado fuera del círculo es exploración: revisa otro k por si ahora rinde más.</li>
+          <li><b>No hay ε.</b> Esta IA es un bandido UCB, no ε-greedy: no explora al azar, sino que suma a cada k un bono de curiosidad c·√(ln ΣN / N(k)) que crece mientras más tiempo lleva sin probarlo. <b>c</b> fija cuánto pesa esa curiosidad y <b>γ</b> cuánto olvida lo aprendido (memoria de ~1/(1−γ) bloques). La «exploración observada» de arriba es el equivalente práctico de ε.</li>
+          <li><b>Triángulo</b> = la recompensa cambió más de 0,25 respecto de lo esperado: la IA supone que la fuente cambió, mide los 9 k en ese bloque y se re-entrena.</li>
+        </ul>
+      </details>
       <p class="tenue" id="ia-nota" style="margin: 0; font-size: 13px;"></p>
     </section>
 

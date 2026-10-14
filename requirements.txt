@@ -2,3 +2,5 @@ numpy>=1.24
 flask>=3.0
 # opcional: solo para --grafica en el CLI
 matplotlib>=3.7
+# servidor de producción para la interfaz (Docker / despliegue)
+gunicorn>=22

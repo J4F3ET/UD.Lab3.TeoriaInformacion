@@ -118,6 +118,10 @@ Abre http://127.0.0.1:5000. Lo que se sube o genera queda en `data/gui/<id>/` (i
 | `POST /api/decodificar` | `{id, tic}` o multipart `archivo` (.tic) | cabecera, verificación SHA-256, `identico_al_original`, enlace al reconstruido |
 | `GET /api/descargar/<id>/<nombre>` | — | el archivo |
 
+### Despliegue
+
+La misma interfaz se publica en `https://tic-codec.<tailnet>.ts.net` desde un LXC de Proxmox con Docker (gunicorn) y Tailscale Funnel en el puerto 443; cada push a `main` la actualiza con GitHub Actions y un runner self-hosted. Paso a paso en [`deploy/README.md`](deploy/README.md).
+
 ## Primera corrida real: imagen JPEG
 Se corrió el códec sobre una foto real (JPEG, 1 486 484 bytes, una de las capturas del tablero de clase). Resultados con k = 8 (`examples/imagen_jpeg/imagen_prueba.json`, gráfica en `imagen_prueba.png`):
 

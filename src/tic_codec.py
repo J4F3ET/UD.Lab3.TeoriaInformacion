@@ -726,6 +726,9 @@ class ReporteCodificacion:
     antes: MetricasAntes
     durante: list[ReporteBloque]
     despues: MetricasDespues
+    # Datos crudos para graficar (la interfaz gráfica los usa); no van al JSON del reporte.
+    entropia_por_bit: np.ndarray | None = None
+    frecuencias: np.ndarray | None = None
 
     def a_dict(self) -> dict:
         return {
@@ -941,7 +944,9 @@ class CodecTIC:
         else:
             despues.KL_original_vs_reconstruido = 0.0 if despues.sin_perdida_exacta else None
 
-        reporte_obj = ReporteCodificacion(antes=antes, durante=durante, despues=despues)
+        reporte_obj = ReporteCodificacion(antes=antes, durante=durante, despues=despues,
+                                          entropia_por_bit=perfil.entropia_por_bit,
+                                          frecuencias=alfabeto.frecuencias)
         reporte_obj.imprimir(entrada)
         if reporte:
             reporte_obj.guardar_json(reporte)
@@ -1002,6 +1007,16 @@ class CodecTIC:
         else:
             secciones = [b"", b"", mascara.extraer(fuente.filas)]
         return modo, tam_huff, tam_strip, secciones
+
+    # ---- leer solo la cabecera ----
+    def leer_cabecera(self, entrada: str) -> CabeceraTIC:
+        """Lee la cabecera de un .tic sin decodificar el cuerpo."""
+        with open(entrada, "rb") as f:
+            inicio = f.read(8)
+            if inicio[:4] != self.MAGIC:
+                raise ValueError("no es un archivo TIC1")
+            hl = struct.unpack("<I", inicio[4:8])[0]
+            return CabeceraTIC.desde_json(f.read(hl))
 
     # ---- decodificar ----
     def decodificar(self, entrada: str, salida: str | None, silencioso: bool = False) -> np.ndarray:

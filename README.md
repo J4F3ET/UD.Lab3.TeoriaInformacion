@@ -30,7 +30,10 @@ El script está organizado en clases, una por responsabilidad, en vez de funcion
 | `HuffmanCanonico` | Construcción, empaquetado y decodificación del código de Huffman |
 | `CabeceraTIC` | La cabecera del formato `.tic`, antes un `dict` sin tipo construido a mano en dos sitios distintos |
 | `CodecTIC` | Orquesta todo: `codificar()`, `decodificar()`, `barrido()` |
-| `GeneradorFuentes` | Fuentes sintéticas de prueba |
+| `GeneradorFuentes` | Fuentes sintéticas de prueba (uniforme, no uniforme, estructurada con tamaño de bloque configurable) |
+| `BandidoUCBDescontado` (en `tic_bandido.py`) | Regla de decisión UCB con descuento por contexto; elige k y aprende de la razón de compresión |
+| `FlujoBloques` (en `tic_bandido.py`) | Arma un flujo concatenando tramos de fuentes distintas y lo entrega en bloques de tamaño fijo |
+| `SimuladorFlujo` (en `tic_bandido.py`) | Calcula la matriz bloques × k de razones, reproduce las políticas (bandido, k fijo, aleatoria, óptimo), imprime, grafica y guarda JSON |
 
 Ningún símbolo individual se modela como objeto (con millones de filas eso mataría el rendimiento); las clases organizan el pipeline, y el cómputo pesado sigue vectorizado con NumPy exactamente igual que antes. El CLI, los nombres de comandos/flags y el formato del reporte JSON no cambiaron — se verificó por regresión corriendo los mismos casos de este README contra el código anterior, campo por campo, con resultado idéntico.
 
@@ -70,7 +73,7 @@ Bytes crudos → Segmentación (N × k/8) → Análisis ANTES (H, I, KL, perfil 
 | Compresión controlada | Selección de modo por tamaño total estimado; `--perdida n` para cuantización explícita de LSB (con MSE/PSNR) |
 | Medir I, H, I(X;Y), KL antes/durante/después | Tres grupos de métricas, reporte JSON y gráfica opcional. `I_XY` se reporta siempre: sin pérdida es igual a H por definición (Y=X exacto); con `--perdida` se mide la información mutua real entre fuente y reconstrucción |
 
-**Pendiente de cubrir explícitamente en el código:** el punto de "uso de IA en el proceso" hoy es una selección de modo por regla fija (comparación de tamaños estimados), no un modelo entrenado — ver Próximos pasos.
+**Uso de IA en el proceso:** lo cubre `src/tic_bandido.py` (bandido UCB con descuento que elige k bloque a bloque, ver la sección "Elección de k en línea con un bandido"), y es una **simulación sobre archivos**, no un componente probado en una red. La selección de modo Huffman/bitstrip dentro de `tic_codec.py` sigue siendo una regla fija (comparación de tamaños estimados).
 
 ## Uso
 
@@ -257,13 +260,112 @@ Con una fuente estructurada de 2 MB (16 bloques de 256 B repetidos con ruido):
 | 256 | 65 536 | 144 | 7,041 | 0,0275 | 33,6 |
 | 2048 | 8 192 | 32 | 4,335 | 0,0021 | 150 (real) |
 
+**Qué k es el mejor depende del tamaño que se mida.** Con el archivo completo de 2 MB el mejor es k = 2048 (razón estimada 165,26; 150 al codificar de verdad, por la cabecera). Con esa misma clase de fuente partida en bloques de 256 KB el mejor es k = 1024 (razón estimada 34,9615 en el tramo `estructurado_256` de la simulación del bandido, ver más abajo), porque en un bloque corto el diccionario de símbolos de 256 B pesa más.
+
 Con `--perdida 3` y k = 8 sobre una fuente sintética: razón 3,44:1, PSNR 38,4 dB (corrida anterior a agregar $I(X;Y)$, no reproducida aquí por no tener registrado el archivo de origen exacto). Todas las decodificaciones sin pérdida pasaron la verificación SHA-256.
 
 **Ejemplo real y reproducible con $I(X;Y)$** — `--perdida 3` y k = 8 sobre `data/imagen_prueba.bmp` (imagen real cruda, la misma de la sección de imagen más arriba): $H(X) = 7,611$ bits/símbolo, $I(X;Y) = 4,621$ bits/símbolo (estrictamente menor que H, como debe ser cuando la reconstrucción no es exacta), razón 1,7195:1, ahorro 41,84%, PSNR 35,67 dB. Reporte completo en [`examples/imagen_bmp_perdida3/imagen_bmp_perdida3.json`](examples/imagen_bmp_perdida3/imagen_bmp_perdida3.json). En los 7 casos sin pérdida documentados arriba, $I(X;Y) = H$ exactamente (columna `I_XY` de cada JSON), porque la reconstrucción es idéntica al original — no es un error de cálculo, es la definición de información mutua cuando $Y=X$.
 
+## Elección de k en línea con un bandido: `src/tic_bandido.py`
+
+Esta es la parte de "IA en el proceso". Es una **simulación sobre archivos**: no se midió latencia ni se probó en una red.
+
+### Por qué un bandido y no un clasificador entrenado
+Un clasificador entrenado por lotes (por ejemplo un árbol de decisión) solo reconoce los tipos de fuente que vio al entrenarse; ante un caso nuevo no tiene respuesta, y en una red habría que reentrenarlo cada vez que cambie el tráfico. El bandido aprende en línea con la razón de compresión que el códec ya mide, sin etiquetas y sin reentrenamiento, y se readapta cuando la fuente cambia por dos mecanismos: el descuento (lo viejo pesa cada vez menos) y el barrido de reinicio (un cambio fuerte de la recompensa hace medir el bloque con los 9 k). Esa readaptación es parcial y lenta en varios tramos, ver "Límites declarados".
+
+### Planteamiento
+El flujo se parte en bloques de tamaño fijo (256 KB por defecto). Para cada bloque:
+
+- **Contexto:** la categoría de `Informacion.clasificar` medida con k = 8 (una sola pasada). Salen tres valores: "uniforme (sin redundancia aprovechable)", "levemente no uniforme" y "no uniforme (alta redundancia)".
+- **Acción (brazo):** un k de `K_BASE` (9 valores, de 8 a 2048).
+- **Recompensa:** $r = \min\left(1, \frac{\log_2(\max(\text{razón}, 1))}{8}\right)$, con la razón estimada por la misma fórmula del barrido. Queda en [0, 1]; el logaritmo evita que una razón de 165 domine.
+
+### Regla de decisión (UCB con descuento, Garivier y Moulines)
+Por cada contexto, con $\gamma$ = 0,98 y $c$ = 0,05:
+
+$$N(k)=\sum_s \gamma^{t-s}\,[k_s = k], \qquad X(k)=\frac{\sum_s \gamma^{t-s}\, r_s\,[k_s = k]}{N(k)}, \qquad k_t=\arg\max_k \; X(k)+c\sqrt{\frac{\ln \sum_k N(k)}{N(k)}}$$
+
+Un k nunca probado en ese contexto se elige primero; los empates se resuelven a favor del k menor, así que el método es determinista.
+
+### Reinicio por cambio
+Si la recompensa del bloque se aleja más de 0,25 de $X(k)$ del brazo elegido, **hacia abajo o hacia arriba** ($|r - X(k)| > 0{,}25$, y siempre que ese brazo ya tuviera historia), se hace un "barrido de reinicio": se actualizan los 9 brazos con sus razones reales sobre ese bloque. Es el barrido de `tic_codec.py` usado como respaldo, y se cuenta cuántas veces ocurre porque es el costo extra del método.
+
+Se mira en ambas direcciones porque una caída fuerte significa que el k elegido dejó de servir, pero una subida fuerte también significa que la fuente cambió y que puede haber un k mucho mejor sin probar. La primera versión solo reaccionaba a las caídas: cuando la fuente pasaba a una más compresible la recompensa subía, no había reinicio y el bandido se quedaba con el primer k que le daba algo (en `estructurado_256` se quedó en k = 64). Esa regla anterior sigue disponible con `--solo-caidas` para poder reproducir la comparación.
+
+En la simulación los bytes reportados del bandido usan solo el k que eligió; el costo del barrido aparece únicamente como contador.
+
+### Cómo correrlo
+```bash
+cd src
+python tic_bandido.py simular --reporte ../reports/bandido_flujo.json --grafica ../reports/bandido_flujo.png
+# opciones: --bloque-kb 256 --tramo-bloques 30 --gamma 0.98 --c 0.05 --semilla 0
+#           --tramos estructurado_256   (solo esos tramos)
+#           --solo-caidas               (reinicio solo cuando la recompensa cae: la regla anterior)
+```
+La matriz bloques × k de razones se calcula una sola vez (unos 2 a 3 minutos en el equipo de desarrollo) y sobre ella se reproducen las políticas: `bandido`, `k fijo = 8`, `k fijo = 16`, `aleatoria` (con la semilla) y `óptimo` (el mejor k de cada bloque, lo que daría un barrido completo en cada bloque). Dos corridas con la misma semilla dan el mismo JSON.
+
+El flujo concatena 8 tramos, en este orden: `uniforme`, `estructurado_256` (bloque repetido de 256 B), `texto` (`data/texto_prueba.txt`), `no_uniforme`, `estructurado_32` (bloque repetido de 32 B), `audio_wav`, `imagen_bmp`, `imagen_jpg`. Son 173 bloques de 256 KB (45 350 912 bytes).
+
+### Resultados de la corrida por defecto
+Reporte completo en [`reports/bandido_flujo.json`](reports/bandido_flujo.json); parámetros $\gamma$ = 0,98, $c$ = 0,05, reinicio en ambas direcciones, semilla 0.
+
+| Política | Bytes comprimidos | Razón global | Arrepentimiento | Barridos de reinicio |
+|---|---|---|---|---|
+| **Bandido** | 29 021 548 | **1,5627** | 6,993 | 34 |
+| k fijo = 8 | 40 465 018 | 1,1207 | 40,970 | — |
+| k fijo = 16 | 35 046 959 | 1,2940 | 36,132 | — |
+| Aleatoria | 35 535 395 | 1,2762 | 26,394 | — |
+| Óptimo (mejor k por bloque) | 24 510 115 | 1,8503 | 0,000 | — |
+
+El arrepentimiento es la suma de $r_{\text{óptimo}} - r_{\text{elegido}}$ sobre los bloques, en la escala de recompensa. Por tramo:
+
+| Tramo | Bloques | k óptimo (más frecuente) | k del bandido (más elegido) | Razón óptimo | Razón bandido | Razón k = 8 |
+|---|---|---|---|---|---|---|
+| uniforme | 30 | 8 | 8 | 1,0000 | 1,0000 | 1,0000 |
+| estructurado_256 | 30 | 1024 | 1024 | 34,9615 | 30,3541 | 1,0004 |
+| texto | 1 | 16 | 8 | 1,3461 | 1,3274 | 1,3274 |
+| no_uniforme | 30 | 8 | 8 | 1,6487 | 1,3263 | 1,6487 |
+| estructurado_32 | 30 | 256 | 256 | 50,0281 | 6,9015 | 1,0544 |
+| audio_wav | 17 | 8 | 256 | 1,0920 | 1,0000 | 1,0920 |
+| imagen_bmp | 30 | 16 | 256 | 1,3307 | 1,0000 | 1,1357 |
+| imagen_jpg | 5 | 8 | 1024 | 1,0023 | 1,0000 | 1,0023 |
+
+![Arrepentimiento acumulado y k del bandido frente al k óptimo, por bloque](reports/bandido_flujo.png)
+
+La gráfica muestra arriba el arrepentimiento acumulado de cada política (con líneas verticales en los cambios de tramo) y abajo el k elegido por el bandido frente al k óptimo de cada bloque. Lo que se ve:
+
+- En `uniforme` el bandido recorre los k en escalera (los 9 brazos, unas 3 o 4 veces cada uno).
+- Al entrar a `estructurado_256` hace 4 barridos de reinicio seguidos (bloques 30 a 33) y desde ahí elige el óptimo k = 1024 en 29 de los 30 bloques (en el otro eligió 64). Su arrepentimiento queda casi plano en ese tramo.
+- En `no_uniforme` elige k = 8 en 16 de 30 bloques y gasta el resto explorando; en `estructurado_32` elige k = 256 (el óptimo) en 22 de 30.
+- En `audio_wav` e `imagen_bmp` se queda en k = 256 en los 47 bloques, aunque el óptimo más frecuente es 8 y 16, y ahí hace 17 y 8 barridos sin cambiar de k (el k = 256 aprendido en `estructurado_32` pesa todavía, porque el descuento 0,98 olvida despacio). En `imagen_jpg` elige 1024 (arrastrado de `estructurado_256`, que comparte contexto) en los 5 bloques, con 5 barridos.
+- Su arrepentimiento acumulado no supera en ningún punto al de las otras políticas (incluida la aleatoria) y termina en 6,993; crece sobre todo al inicio de `estructurado_32` (bloques 90 a 100 aproximadamente) y en `imagen_bmp` e `imagen_jpg`.
+
+**Comprobación en un solo tipo de fuente** (`--tramos estructurado_256`, descontando los 9 bloques de arranque): con bloques de 256 KB (30 bloques, óptimo k = 1024) eligió el óptimo en 14 de 21 bloques; con `--bloque-kb 2048` y 40 bloques (óptimo k = 2048) lo eligió en 29 de 31. En ninguna de las dos corridas hubo barridos de reinicio.
+
+### Límites declarados
+Variantes medidas sobre este mismo flujo (todas con $\gamma$ = 0,98):
+
+| Variante | Reporte | Razón global | Arrepentimiento | Barridos |
+|---|---|---|---|---|
+| $c$ = 0,5, solo caídas | [`bandido_flujo_c05.json`](reports/bandido_flujo_c05.json) | 1,4550 | 15,513 | 17 |
+| $c$ = 0,05, solo caídas | [`bandido_flujo_solo_caidas.json`](reports/bandido_flujo_solo_caidas.json) | 1,5111 | 15,961 | 30 |
+| $c$ = 0,05, reinicio en ambas direcciones (por defecto) | [`bandido_flujo.json`](reports/bandido_flujo.json) | 1,5627 | 6,993 | 34 |
+
+1. **Supera a k fijo en razón global pero queda lejos del óptimo.** Razón global 1,5627 frente a 1,1207 (k = 8) y 1,2940 (k = 16), pero el óptimo logra 1,8503: son 29 021 548 bytes frente a 24 510 115. La brecha viene de `estructurado_32` (6,9015 frente a 50,0281), de `no_uniforme`, `audio_wav`, `imagen_bmp` e `imagen_jpg` (ver el punto siguiente) y de `estructurado_256` (30,3541 frente a 34,9615).
+2. **Sigue perdiendo frente a k = 8 fijo en cuatro tramos:** `no_uniforme` (1,3263 frente a 1,6487), `audio_wav` (1,0000 frente a 1,0920), `imagen_bmp` (1,0000 frente a 1,1357) e `imagen_jpg` (1,0000 frente a 1,0023). En `uniforme` y `texto` empata con k = 8. La ventaja global viene sobre todo de los dos tramos estructurados (30,3541 y 6,9015 frente a 1,0004 y 1,0544). El reinicio en ambas direcciones arregló `estructurado_256` pero no estos cuatro tramos.
+3. **El contexto con k = 8 es demasiado grueso.** Mezcla fuentes distintas en la misma categoría: "uniforme" agrupa `uniforme`, `estructurado_256` e `imagen_jpg` (65 bloques); "levemente no uniforme" agrupa `estructurado_32`, `audio_wav` e `imagen_bmp` (77 bloques); "no uniforme" agrupa `texto` y `no_uniforme` (31 bloques). Por eso el k aprendido en un tramo se arrastra al siguiente que comparte categoría: el k = 256 de `estructurado_32` se mantiene en `audio_wav` e `imagen_bmp` (donde el óptimo más frecuente es 8 y 16) y el k = 1024 de `estructurado_256` pasa a `imagen_jpg` (donde es 8), a pesar de los barridos. Lo único que separa una fuente estructurada de una ya comprimida es la adaptación en el tiempo.
+4. **La razón es la estimación del barrido:** no incluye la cabecera JSON, que pesa más con k grande.
+5. **Los parámetros y la regla se ajustaron sobre el mismo flujo con el que se evalúa, así que el resultado es optimista y no hay un flujo de prueba separado.** Tanto $c$ = 0,05 (porque con 0,5 el bono de exploración tapaba las diferencias de centésimas entre k vecinos, y el bandido recorría los k en ciclo) como el reinicio en ambas direcciones (porque con solo caídas el bandido se quedaba en k = 64 en `estructurado_256`) se eligieron después de ver los resultados sobre estos mismos 173 bloques. La tabla de arriba muestra el efecto de cada decisión, pero no sustituye una evaluación sobre datos no vistos. Además, bajar $c$ de 0,5 a 0,05 mejoró la razón global (1,4550 a 1,5111) pero no el arrepentimiento (15,513 a 15,961); la mejora del arrepentimiento (a 6,993) llegó con la regla simétrica.
+6. **El texto real solo aporta 1 bloque de 256 KB** (`texto_prueba.txt` pesa 435 588 B), el WAV 17 y el JPG 5, en lugar de los 30 pedidos; el tramo de texto casi no se puede evaluar.
+7. **Solo elige entre los 9 valores de `K_BASE`.**
+8. **Explorar cuesta:** algunos bloques se comprimen peor a propósito (la escalera inicial del tramo `uniforme` y los ciclos de exploración, por ejemplo 16 de 30 bloques con k = 8 y el resto exploración en `no_uniforme`), y los 34 barridos de reinicio suponen medir esos bloques con los 9 k, costo que la razón global no incluye. Además, 25 de esos barridos (en `audio_wav` e `imagen_bmp`) no cambiaron el k elegido.
+
+### Relación con 5G/6G (propuesta, no medida)
+La idea razonada es que en un enlace cuyo tráfico cambia de tipo (voz, video, datos) un transmisor podría elegir el tamaño de símbolo bloque a bloque con la razón que ya mide, sin tabla de reglas ni reentrenar, usando el barrido solo como respaldo cuando algo cambia. Esto es una propuesta de interpretación: lo único probado aquí es una simulación sobre archivos. No se midió latencia, ni el costo del barrido en tiempo, ni se probó en una red.
+
 ## Supuestos declarados (por falta de las páginas 2-7 del enunciado)
 - **"N bits/símbolo"** se interpreta como la profundidad de codificación por símbolo de la fuente (cuántos bits representan cada símbolo antes de comprimir), igual que en el ejercicio de cuantificación PCM visto en clase.
-- **"IA en el proceso"** se interpreta como un componente que ayuda a decidir la codificación (ej. recomendar k o el tipo de codificación), no como un modelo generativo que reemplace la codificación.
+- **"IA en el proceso"** se interpreta como un componente que ayuda a decidir la codificación, no como un modelo generativo que reemplace la codificación. En concreto: un bandido UCB con descuento (`src/tic_bandido.py`) que elige k bloque a bloque y aprende en línea con la razón de compresión que el códec mide, sin etiquetas ni reentrenamiento.
 - **"Confiable"** se interpreta como reconstrucción verificable con una métrica objetiva: bit-exacta (SHA-256) sin pérdida, o error medible (MSE/PSNR) con pérdida.
 
 ## Próximos pasos
@@ -273,8 +375,8 @@ Con `--perdida 3` y k = 8 sobre una fuente sintética: razón 3,44:1, PSNR 38,4 
 - [x] Audio real (voz, 98 s, MP3 y WAV) corrido y verificado — ver sección de arriba.
 - [x] Video real (screen recording, 28,1 s, MP4 y RGB crudo) corrido y verificado — ver sección de arriba. Duración y resolución reducidas frente a los 5 min pedidos, por el límite de rendimiento del decodificador en Python puro (declarado en esa sección); las 4 fuentes del enunciado (imagen, audio, texto, video) ya están cubiertas.
 - [x] Calcular explícitamente $I(X;Y)$ entre la fuente original y la reconstruida — `Informacion.informacion_mutua()`, reportado como `I_XY` en todos los JSON (`= H` sin pérdida por definición; con `--perdida` se mide la información mutua real, ver ejemplo arriba).
-- [ ] Sustituir/complementar la selección de modo por regla fija con un modelo simple (árbol de decisión, por ejemplo) que recomiende k y el tipo de codificación — para cubrir el punto de "IA en el proceso".
-- [ ] Interpretar los resultados en el contexto de 5G/6G (relación entre k, latencia y ancho de banda).
+- [x] "IA en el proceso": `src/tic_bandido.py`, un bandido UCB con descuento (no un árbol de decisión) que elige k bloque a bloque y aprende en línea; simulado sobre un flujo de 173 bloques con razón global 1,5627 frente a 1,1207 de k = 8 fijo y 1,8503 del óptimo (arrepentimiento 6,993, 34 barridos de reinicio). Es una simulación con límites declarados (ver "Límites declarados"), no un sistema probado en una red.
+- [ ] Interpretar los resultados en el contexto de 5G/6G (relación entre k, latencia y ancho de banda). Parcialmente cubierto: hay una interpretación razonada en la sección del bandido, pero sin mediciones de red ni de latencia.
 
 ## Documentación
 - [`docs/Codec_adaptable_documentacion_tecnica.pdf`](docs/Codec_adaptable_documentacion_tecnica.pdf) — documentación técnica completa: fórmulas, formato del archivo `.tic`, Huffman canónico, límites del estimador de entropía.

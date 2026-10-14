@@ -1053,6 +1053,24 @@ class CodecTIC:
             print(f"Decodificado {n} símbolos de {k} bits → {len(out)} bytes | SHA-256 {'OK' if ok else 'FALLÓ'}")
         return out
 
+    # ---- estimación para un solo k, sin codificar ----
+    @staticmethod
+    def estimar(raw: np.ndarray, k: int) -> tuple[MetricasAntes, float]:
+        """Métricas "antes" y razón de compresión ESTIMADA de `raw` con símbolos de k bits,
+        sin escribir nada. Lo usan barrido() y el bandido de tic_bandido.py."""
+        fuente = Fuente.desde_bytes(raw, k)
+        alfabeto = Alfabeto.desde_filas(fuente.filas)
+        perfil = PerfilBits.desde_filas(fuente.filas)
+        m = MetricasAntes.calcular(fuente, alfabeto, perfil)
+        huffman = HuffmanCanonico.desde_frecuencias(alfabeto.frecuencias)
+        v = m.bits_variables
+        # Mismas fórmulas de tamaño que en _codificar_cuerpo:
+        #   huff  = techo(bits de códigos / 8) + U + techo(U · v / 8)
+        #   strip = techo(n · v / 8)
+        huff = -(-int((alfabeto.frecuencias * huffman.longitudes).sum()) // 8) + alfabeto.U + -(-alfabeto.U * v // 8)
+        strip = -(-fuente.n * v // 8)
+        return m, len(raw) / min(huff, strip)  # se usa el más chico de los dos modos
+
     # ---- barrido de k, sin codificar ----
     def barrido(self, entrada: str, ks: list[int]) -> list[dict]:
         # Para cada k de la lista `ks` calcula las métricas "antes" y ESTIMA la razón de
@@ -1063,18 +1081,7 @@ class CodecTIC:
         print(cab); print("─" * len(cab))  # "─" * n repite el carácter n veces (línea separadora)
         resultados = []
         for k in ks:
-            fuente = Fuente.desde_bytes(raw, k)
-            alfabeto = Alfabeto.desde_filas(fuente.filas)
-            perfil = PerfilBits.desde_filas(fuente.filas)
-            m = MetricasAntes.calcular(fuente, alfabeto, perfil)
-            huffman = HuffmanCanonico.desde_frecuencias(alfabeto.frecuencias)
-            v = m.bits_variables
-            # Mismas fórmulas de tamaño que en _codificar_cuerpo:
-            #   huff  = techo(bits de códigos / 8) + U + techo(U · v / 8)
-            #   strip = techo(n · v / 8)
-            huff = -(-int((alfabeto.frecuencias * huffman.longitudes).sum()) // 8) + alfabeto.U + -(-alfabeto.U * v // 8)
-            strip = -(-fuente.n * v // 8)
-            razon = len(raw) / min(huff, strip)  # se usa el más chico de los dos modos
+            m, razon = self.estimar(raw, k)
             print(f"{k:>6} {m.N_simbolos:>10,} {m.alfabeto_observado_U:>10,} {m.H_bits_por_simbolo:>10.3f} "
                   f"{m.H_por_bit:>7.4f} {m.cota_muestral_log2N:>7.2f} {m.KL_P_vs_uniforme_k:>10.2f} "
                   f"{m.bits_constantes_redundantes:>9} {razon:>7.3f}  {m.estructura}")
@@ -1102,12 +1109,13 @@ class GeneradorFuentes:
         return rng.choice(256, n, p=p / p.sum()).astype(np.uint8)
 
     @staticmethod
-    def estructurado(n: int, rng: np.random.Generator) -> np.ndarray:
-        # 16 bloques de 256 B que se repiten: redundancia sólo visible con k grandes
-        dic = rng.integers(0, 256, (16, 256), dtype=np.uint8)  # "diccionario" de 16 bloques al azar
+    def estructurado(n: int, rng: np.random.Generator, bloque: int = 256) -> np.ndarray:
+        # 16 bloques de `bloque` bytes (256 por defecto) que se repiten: redundancia sólo
+        # visible cuando k alcanza el tamaño del bloque (k = 8 · bloque).
+        dic = rng.integers(0, 256, (16, bloque), dtype=np.uint8)  # "diccionario" de 16 bloques al azar
         # rng.integers(0, 16, cantidad) elige al azar cuál de los 16 bloques va en cada lugar;
         # dic[...] los pone uno tras otro; ravel() los aplana y [:n] recorta a n bytes exactos.
-        d = dic[rng.integers(0, 16, -(-n // 256))].ravel()[:n].copy()
+        d = dic[rng.integers(0, 16, -(-n // bloque))].ravel()[:n].copy()
         # d[::4096] = uno de cada 4096 bytes; `^= 1` invierte su último bit (XOR con 1).
         d[::4096] ^= 1  # algo de ruido
         return d

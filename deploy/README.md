@@ -40,14 +40,26 @@ emite y renueva solo. No se abre ningún puerto en el router ni en el LXC.
 
 ## 2. Crear el LXC en Proxmox
 
-Desde una shell en el **host** de Proxmox (como root), con el repo o solo la carpeta
-`deploy/proxmox/` copiada:
+### Opción A (recomendada): script "Docker" de community-scripts.org
+
+En la shell del **host** de Proxmox (como root). Crea un LXC Debian 13 no privilegiado con Docker
+ya instalado; las variables suben los recursos por defecto (2 GB RAM / 4 GB disco no alcanzan):
+
+```bash
+var_os=debian var_cpu=2 var_ram=4096 var_disk=20 bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/ct/docker.sh)"
+```
+
+- Si muestra el menú, elige **Default** (las variables ya fijan los recursos) o **Advanced** para
+  cambiar hostname/IP. Un nombre como `tic-codec` ayuda a reconocerlo.
+- Cuando ofrezca complementos (Portainer, Dockge, Komodo…) puedes decir que **no**: el despliegue
+  lo hace GitHub Actions.
+- Al terminar imprime el **CTID** del contenedor; anótalo.
+
+### Opción B: `crear-lxc.sh` de este repo
 
 ```bash
 bash deploy/proxmox/crear-lxc.sh
 ```
-
-Variables opcionales (todas tienen valor por defecto):
 
 | Variable | Defecto | Para qué |
 |---|---|---|
@@ -57,25 +69,41 @@ Variables opcionales (todas tienen valor por defecto):
 | `PUENTE` / `IP` / `GW` | `vmbr0` / `dhcp` / — | red; ej. `IP=192.168.1.50/24 GW=192.168.1.1` |
 | `SSH_PUBKEY` | — | ruta a una clave pública para entrar por SSH |
 
-Ejemplo: `CTID=210 MEMORIA=6144 STORAGE=local-zfs bash deploy/proxmox/crear-lxc.sh`
-
-El script descarga la plantilla Debian *standard* más reciente, crea un LXC **no privilegiado**
-con `nesting=1,keyctl=1`, instala Docker desde el repositorio oficial, crea el usuario
-`deployer` (grupo `docker`) y prueba `hello-world`.
+Descarga la plantilla Debian *standard* más reciente, crea el LXC con `nesting=1,keyctl=1`,
+instala Docker desde el repositorio oficial y deja `instalar-runner.sh` en `/root/`.
 
 ## 3. Registrar el runner de GitHub Actions
 
-1. GitHub → repo → **Settings → Actions → Runners → New self-hosted runner** → copia solo
+`deploy/proxmox/instalar-runner.sh` hace todo lo que pide la guía oficial de GitHub, como root
+dentro del LXC:
+
+1. instala `curl jq git tar` y comprueba que Docker y `docker compose` respondan;
+2. crea el usuario **`deployer`** (sin privilegios, en el grupo `docker`) — el runner **no** corre como root;
+3. descarga la última versión de `actions/runner`, **verifica su SHA-256** con el que publica
+   GitHub y corre `bin/installdependencies.sh`;
+4. registra el runner con `config.sh` **como `deployer`**, con las etiquetas `tic-codec,proxmox`;
+5. `./svc.sh install deployer` + `./svc.sh start` (servicio systemd que arranca con el LXC) y
+   excluye el servicio de `needrestart` para que no lo reinicien a mitad de un job.
+
+Es re-ejecutable: si el runner ya está registrado solo se asegura de que el servicio esté
+instalado y activo (`FORZAR=1` para registrarlo de nuevo).
+
+**Pasos** (cambia `210` por tu CTID):
+
+1. Copia el script al LXC desde el host de Proxmox (el repo es privado, no se puede bajar con
+   `curl`; hace falta el repo clonado en el host, o pega el archivo a mano en el LXC).
+   Con la opción B ya está en `/root/` y te saltas esto.
+   ```bash
+   pct push 210 deploy/proxmox/instalar-runner.sh /root/instalar-runner.sh --perms 0755
+   ```
+2. GitHub → repo → **Settings → Actions → Runners → New self-hosted runner** → copia solo
    el **token** (dura 1 hora).
-2. En el host de Proxmox (cambia `210` por tu CTID):
+3. Ejecuta:
    ```bash
-   pct exec 210 -- su - deployer -c 'bash /opt/instalar-runner.sh https://github.com/J4F3ET/UD.Lab3.TeoriaInformacion TOKEN_AQUI'
+   pct exec 210 -- bash /root/instalar-runner.sh https://github.com/J4F3ET/UD.Lab3.TeoriaInformacion TOKEN_AQUI
    ```
-   ```bash
-   pct exec 210 -- bash -c 'cd /home/deployer/actions-runner && ./svc.sh install deployer && ./svc.sh start'
-   ```
-3. El runner debe salir **Idle** en Settings → Actions → Runners, con las etiquetas
-   `self-hosted, linux, tic-codec, proxmox`. El workflow lo elige por `tic-codec`.
+4. Debe terminar con `✔ Runner "…" activo como servicio actions.runner.…` y salir **Idle** en
+   Settings → Actions → Runners, con las etiquetas `self-hosted, linux, tic-codec, proxmox`.
 
 > El repo es privado, así que nadie de afuera puede mandar código a ese runner. Si algún día
 > se vuelve público, el job de despliegue igual nunca corre en `pull_request`, pero conviene

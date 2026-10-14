@@ -94,9 +94,9 @@ python src/tic_codec.py decodificar reports/prueba.tic reports/salida.bin
 
 Requisitos: `numpy` (obligatorio), `matplotlib` (solo si se usa `--grafica`), `soundfile` (solo para preparar fuentes de audio — decodificar/convertir formatos antes de pasárselas al códec, no lo usa `tic_codec.py` directamente).
 
-## Interfaz gráfica (en construcción)
+## Interfaz gráfica
 
-`src/app.py` es un backend Flask que expone el mismo códec como API JSON; la interfaz web (en `src/gui/`) la consume. No reimplementa nada: cada endpoint llama a `CodecTIC` / `GeneradorFuentes`.
+`src/app.py` es un backend Flask que expone el mismo códec como API JSON; la interfaz web (`src/gui/`: HTML, CSS y JS sin dependencias ni paso de build, funciona sin internet) la consume en cuatro vistas: **Fuente** (subir o generar), **Barrido de k** (razón estimada por k, mejor k resaltado), **Codificar** (métricas antes/durante/después, entropía por bit, rango-frecuencia, descarga del `.tic` y del reporte) y **Decodificar** (cabecera TIC1, verificación SHA-256, descarga del reconstruido). No reimplementa nada: cada endpoint llama a `CodecTIC` / `GeneradorFuentes`.
 
 ```bash
 pip install -r requirements.txt

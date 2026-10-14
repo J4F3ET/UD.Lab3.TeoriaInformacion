@@ -1,7 +1,239 @@
 <!doctype html>
 <html lang="es">
-<head><meta charset="utf-8"><title>Códec TIC</title></head>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Códec TIC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
 <body>
-<p>Backend del códec TIC activo. La interfaz (frontend) aún no está construida; la API vive en <code>/api/…</code>.</p>
+<header class="barra">
+  <div class="barra-in">
+    <div class="marca">
+      <div class="logo" aria-hidden="true">TIC</div>
+      <div>
+        <div class="marca-titulo">Códec adaptable TIC</div>
+        <div class="marca-sub" id="marca-sub">Lab 3 · Teoría de la Información</div>
+      </div>
+    </div>
+    <nav class="pestanas" role="tablist" aria-label="Etapas">
+      <button role="tab" id="t-fuente" aria-controls="v-fuente" aria-selected="true" data-vista="fuente">1 · Fuente</button>
+      <button role="tab" id="t-barrido" aria-controls="v-barrido" aria-selected="false" data-vista="barrido">2 · Barrido de k</button>
+      <button role="tab" id="t-codificar" aria-controls="v-codificar" aria-selected="false" data-vista="codificar">3 · Codificar</button>
+      <button role="tab" id="t-decodificar" aria-controls="v-decodificar" aria-selected="false" data-vista="decodificar">4 · Decodificar</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- ═════════ 1 · Fuente ═════════ -->
+  <section class="vista" id="v-fuente" role="tabpanel" aria-labelledby="t-fuente">
+    <div class="encabezado">
+      <div>
+        <h1>Cargar fuente</h1>
+        <p>Cualquier archivo se trata como bytes crudos y se segmenta en símbolos de k bits. Sube uno propio o genera una fuente sintética de prueba.</p>
+      </div>
+    </div>
+
+    <div class="columnas">
+      <section class="panel">
+        <h2>Subir archivo</h2>
+        <label class="zona" id="zona-fuente">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#5AA9FF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+          <span>Arrastra un archivo aquí o elige uno</span>
+          <span class="nota">Imagen (BMP, PNG, JPEG), audio (WAV, MP3), video (MP4, RGB crudo) o texto</span>
+          <input type="file" id="archivo-fuente">
+        </label>
+        <div class="nota tenue" style="font-size: 13px;">Para medir redundancia real conviene un formato sin comprimir (BMP, WAV, RGB): JPEG, MP3 y MP4 ya vienen casi a entropía máxima.</div>
+        <div id="carga-subir" class="cargando" hidden>Subiendo…</div>
+      </section>
+
+      <section class="panel">
+        <h2>Generar fuente sintética</h2>
+        <form id="form-generar" class="vista" style="gap: 18px;">
+          <fieldset class="opciones">
+            <legend>Tipo de fuente</legend>
+            <label class="opcion"><input type="radio" name="tipo" value="uniforme"><span><b>Uniforme</b><small>Bytes equiprobables, H ≈ k: no hay nada que comprimir</small></span></label>
+            <label class="opcion"><input type="radio" name="tipo" value="estructurado" checked><span><b>Estructurado</b><small>Bloques de 256 B que se repiten: redundancia visible con k grandes</small></span></label>
+            <label class="opcion"><input type="radio" name="tipo" value="no_uniforme"><span><b>No uniforme</b><small>Distribución sesgada (Zipf) de los bytes</small></span></label>
+          </fieldset>
+          <div class="campos">
+            <label class="campo">Tamaño (MB)<input type="number" name="mb" value="4" min="0.01" max="512" step="any" required></label>
+            <label class="campo">Semilla<input type="number" name="semilla" value="0" min="0" step="1" required></label>
+            <button class="boton" type="submit">Generar</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <section class="panel ficha" id="ficha-fuente" aria-label="Fuente activa" hidden>
+      <div class="ficha-nombre">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9AA4B2" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg>
+        <div><div class="mono" id="fuente-nombre"></div><div class="tenue" style="font-size: 13px;" id="fuente-origen"></div></div>
+      </div>
+      <dl class="datos">
+        <div><dt>Tamaño</dt><dd id="fuente-tamano"></dd></div>
+        <div><dt>Tipo</dt><dd id="fuente-tipo"></dd></div>
+        <div><dt>SHA-256</dt><dd id="fuente-sha" title=""></dd></div>
+      </dl>
+      <button class="boton primario" type="button" data-ir="barrido">Analizar k
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </section>
+  </section>
+
+  <!-- ═════════ 2 · Barrido ═════════ -->
+  <section class="vista" id="v-barrido" role="tabpanel" aria-labelledby="t-barrido" hidden>
+    <div class="encabezado">
+      <div>
+        <h1>Barrido de k</h1>
+        <p>Mide la fuente para cada tamaño de símbolo sin escribir nada y estima la razón de compresión. Elige el k con mejor razón.</p>
+      </div>
+      <div class="campos">
+        <div class="segmentado" role="group" aria-label="Conjunto de k">
+          <button type="button" aria-pressed="true" data-conjunto="base">8 … 2048</button>
+          <button type="button" aria-pressed="false" data-conjunto="extendido">Extendido</button>
+          <button type="button" aria-pressed="false" data-conjunto="propia">Lista propia</button>
+        </div>
+        <label class="campo" id="campo-ks" hidden>Valores de k<input type="text" class="ancho" id="ks-propia" placeholder="8, 64, 2048, 32888"></label>
+        <button class="boton primario" type="button" id="btn-barrido">Ejecutar barrido</button>
+      </div>
+    </div>
+    <div class="vacio" data-sin-fuente>Primero carga una fuente en <button class="enlace" type="button" data-ir="fuente">1 · Fuente</button>.</div>
+    <div id="carga-barrido" class="cargando" hidden>Midiendo la fuente para cada k…</div>
+
+    <div id="res-barrido" class="vista" hidden>
+      <section class="panel" aria-label="Razón estimada por k">
+        <div class="fila-panel">
+          <h2>Razón de compresión estimada</h2>
+          <div class="leyenda"><span><i class="muestra cuadro" style="background: var(--acento);"></i>razón</span><span><i class="muestra cuadro" style="background: var(--resalte);"></i>k recomendado</span><span id="barrido-tiempo"></span></div>
+        </div>
+        <div class="barras" id="barrido-barras"></div>
+        <div class="ejes-x" id="barrido-ejes"></div>
+      </section>
+
+      <section class="panel" style="padding: 0; overflow: hidden;" aria-label="Tabla del barrido">
+        <div class="tabla-caja">
+          <table>
+            <thead><tr>
+              <th scope="col">k</th><th scope="col">N</th><th scope="col">U</th><th scope="col">H (bits/símb.)</th><th scope="col">H/k</th>
+              <th scope="col">KL(P‖U)</th><th scope="col">Bits red.</th><th scope="col">Razón est.</th><th scope="col" class="izq">Estructura</th><th scope="col"><span class="sr">Acción</span></th>
+            </tr></thead>
+            <tbody id="barrido-tabla"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ═════════ 3 · Codificar ═════════ -->
+  <section class="vista" id="v-codificar" role="tabpanel" aria-labelledby="t-codificar" hidden>
+    <div class="encabezado">
+      <div>
+        <h1>Codificar</h1>
+        <p>Huffman canónico o bitstrip, el que resulte más pequeño. Métricas antes, durante y después.</p>
+      </div>
+      <form class="campos" id="form-codificar">
+        <label class="campo">k (bits/símbolo)<input type="number" name="k" value="8" min="8" step="8" list="lista-k" required></label>
+        <datalist id="lista-k"><option value="8"><option value="16"><option value="32"><option value="64"><option value="128"><option value="256"><option value="512"><option value="1024"><option value="2048"></datalist>
+        <label class="campo">Pérdida (LSB)
+          <select name="perdida"><option value="0">0 · sin pérdida</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select>
+        </label>
+        <label class="campo">Bloques<input type="number" name="bloques" value="50" min="1" max="1000" required></label>
+        <button class="boton primario" type="submit">Codificar</button>
+      </form>
+    </div>
+    <div class="vacio" data-sin-fuente>Primero carga una fuente en <button class="enlace" type="button" data-ir="fuente">1 · Fuente</button>.</div>
+    <div id="carga-codificar" class="cargando" hidden>Codificando, decodificando y verificando…</div>
+
+    <div id="res-codificar" class="vista" hidden>
+      <section class="banner" id="cod-banner" aria-live="polite"></section>
+
+      <section class="vista" style="gap: 14px;" aria-labelledby="antes-h">
+        <div class="titulo-seccion"><h2 id="antes-h">Antes</h2><span id="antes-sub"></span></div>
+        <div class="tarjetas" id="antes-tarjetas"></div>
+      </section>
+
+      <div class="columnas">
+        <section class="panel" aria-labelledby="perfil-h">
+          <div class="fila-panel"><h3 id="perfil-h">Entropía por posición de bit</h3><span class="tenue" style="font-size: 13px;" id="perfil-sub"></span></div>
+          <div class="grafica"><div class="eje-y"><span>1</span><span>0,5</span><span>0</span></div><svg id="perfil-svg" viewBox="0 0 1000 220" preserveAspectRatio="none" role="img"></svg></div>
+          <div class="eje-x-pie" id="perfil-ejes" style="padding: 0 0 0 42px;"></div>
+        </section>
+        <section class="panel" aria-labelledby="rf-h">
+          <div class="fila-panel"><h3 id="rf-h">Rango-frecuencia (log-log)</h3><span class="tenue" style="font-size: 13px;" id="rf-sub"></span></div>
+          <div class="grafica"><div class="eje-y" id="rf-y"></div><svg id="rf-svg" viewBox="0 0 1000 220" preserveAspectRatio="none" role="img"></svg></div>
+          <div class="eje-x-pie" id="rf-x" style="padding: 0 0 0 42px;"></div>
+        </section>
+      </div>
+
+      <section class="panel" aria-labelledby="durante-h">
+        <div class="fila-panel">
+          <div class="titulo-seccion"><h2 id="durante-h">Durante</h2><span id="durante-sub"></span></div>
+          <div class="leyenda">
+            <span><i class="muestra" style="background: var(--acento);"></i>H bloque</span>
+            <span><i class="muestra" style="background: var(--resalte);"></i>L̄ Huffman</span>
+            <span><i class="muestra discontinua"></i>razón acumulada (eje der.)</span>
+          </div>
+        </div>
+        <div class="grafica">
+          <div class="eje-y" id="durante-y"></div>
+          <svg id="durante-svg" viewBox="0 0 1000 220" preserveAspectRatio="none" role="img"></svg>
+          <div class="eje-y der" id="durante-y2"></div>
+        </div>
+        <div class="tenue" style="font-size: 13px;" id="durante-nota"></div>
+      </section>
+
+      <section class="vista" style="gap: 14px;" aria-labelledby="despues-h">
+        <div class="titulo-seccion"><h2 id="despues-h">Después</h2><span>decodificado y verificado</span></div>
+        <div class="tarjetas" id="despues-tarjetas"></div>
+        <div class="aviso-perdida" id="aviso-perdida">Con pérdida &gt; 0 aquí aparecen MSE por byte, PSNR (dB) y KL(original‖reconstruido); I(X;Y) cae por debajo de H.</div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ═════════ 4 · Decodificar ═════════ -->
+  <section class="vista" id="v-decodificar" role="tabpanel" aria-labelledby="t-decodificar" hidden>
+    <div class="encabezado">
+      <div>
+        <h1>Decodificar</h1>
+        <p>Sube un archivo .tic: se lee la cabecera, se reconstruyen los bytes y se compara la huella SHA-256 guardada con la del resultado.</p>
+      </div>
+    </div>
+
+    <div class="columnas">
+      <section class="panel">
+        <h2>Archivo .tic</h2>
+        <label class="zona" id="zona-tic">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#5AA9FF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+          <span>Arrastra un .tic o elige uno</span>
+          <span class="nota">o usa el último codificado en esta sesión</span>
+          <input type="file" id="archivo-tic" accept=".tic">
+        </label>
+        <div id="ultimo-tic" class="vista" style="gap: 12px;" hidden>
+          <div class="panel" style="padding: 12px 14px; flex-direction: row; align-items: center; border-radius: 8px;">
+            <span class="mono" id="ultimo-tic-nombre" style="overflow-wrap: anywhere;"></span>
+            <span class="mono tenue" style="margin-left: auto; font-size: 13px;" id="ultimo-tic-tamano"></span>
+          </div>
+          <button class="boton primario" type="button" id="btn-decodificar">Decodificar y verificar</button>
+        </div>
+        <div id="carga-decodificar" class="cargando" hidden>Decodificando…</div>
+      </section>
+
+      <section class="panel" aria-labelledby="cab-h">
+        <h2 id="cab-h">Cabecera TIC1</h2>
+        <p class="tenue" id="cab-vacia" style="margin: 0;">Aparece al decodificar un archivo.</p>
+        <dl class="datos-rejilla" id="cab-datos" hidden></dl>
+      </section>
+    </div>
+
+    <section class="banner" id="dec-banner" aria-live="polite" hidden></section>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="alert" hidden></div>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

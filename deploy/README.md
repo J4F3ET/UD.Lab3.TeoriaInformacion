@@ -124,6 +124,33 @@ bash deploy/proxmox/instalar-tailscale.sh 111
 
 Recomendado: en la consola, menú `⋯` de `tic-codec` → **Disable key expiry**.
 
+## 3c. Arranque automático (después de un reinicio)
+
+Para que, al reiniciar el LXC o el host de Proxmox, todo vuelva a quedar arriba solo y **en orden**
+(red y DNS → Docker → contenedores de la app → runner), en el host de Proxmox:
+
+```bash
+bash deploy/proxmox/arranque-automatico.sh 111
+```
+
+1. `pct set 111 --onboot 1`: el LXC arranca junto con Proxmox.
+2. Deja `docker`, `containerd` y `tailscaled` habilitados al arranque.
+3. Crea el servicio **`tic-codec`**, que hace `docker compose … up -d --no-build` al arrancar.
+   Así vuelven los contenedores aunque alguien los haya bajado con `compose down`, además del
+   `restart: unless-stopped` de `compose.yaml`.
+4. Al servicio del runner le agrega un *drop-in* para que arranque **después** de la red, Docker,
+   Tailscale y la app, y que antes **espere a poder resolver `github.com`** (hasta 120 s). Sin esto,
+   tras un reinicio el runner llegó a tomar un job sin DNS y falló con
+   `Could not resolve host: github.com`. También se reinicia solo si se cae (`Restart=always`).
+
+No reinicia el runner mientras pueda estar corriendo un job: el nuevo orden se aplica en el próximo
+arranque. Para comprobarlo de una vez, `PROBAR=1 bash deploy/proxmox/arranque-automatico.sh 111`
+reinicia el LXC y verifica que la app responda. Ver el estado en cualquier momento:
+
+```bash
+pct exec 111 -- bash /root/arranque-automatico.sh --estado
+```
+
 ## 4. Variables en GitHub (opcional)
 
 **Settings → Secrets and variables → Actions:**

@@ -249,6 +249,21 @@
         </div>
         <div class="eje-x-pie" id="durante-x" style="padding: 0 66px 0 66px;"></div>
         <div class="eje-titulo-x">bloque del archivo (tramos consecutivos, en orden)</div>
+
+        <div class="fila-panel" style="margin-top: 8px;">
+          <h3>Varianza de la longitud de código, σ² = Σ pₖ·(lₖ − L̄)²</h3>
+          <span class="tenue" style="font-size: 13px;" id="varianza-sub"></span>
+        </div>
+        <div class="grafica-titulada">
+          <div class="eje-titulo-y">σ² (bits²)</div>
+          <div class="grafica">
+            <div class="eje-y" id="varianza-y" style="height: 120px;"></div>
+            <svg id="varianza-svg" viewBox="0 0 1000 120" preserveAspectRatio="none" role="img" style="height: 120px;"></svg>
+            <div class="eje-y der" style="height: 120px;"></div>
+          </div>
+          <div class="eje-titulo-y der"></div>
+        </div>
+        <div class="eje-titulo-x">mismo eje de bloques que la gráfica de arriba</div>
         <div class="tenue" style="font-size: 13px;" id="durante-nota"></div>
         <details class="como-leer">
           <summary>Cómo leer esta gráfica</summary>
@@ -256,6 +271,7 @@
             <li><b>Eje horizontal:</b> el archivo partido en tramos consecutivos (bloques), en orden de principio a fin.</li>
             <li><b>Línea azul H (eje izquierdo):</b> la entropía del bloque, la información real que trae cada símbolo, en bits. Es el mínimo teórico al que puede llegar un código.</li>
             <li><b>Línea naranja L̄ (eje izquierdo):</b> los bits que usa de verdad el código de Huffman por símbolo en ese bloque. Siempre queda en H o por encima; mientras más pegada a la azul, más eficiente es el código.</li>
+            <li><b>Varianza σ² (gráfica de abajo):</b> la dispersión de las longitudes de código en cada bloque, σ² = Σ pₖ·(lₖ − L̄)². Baja significa códigos de largo parecido y un flujo de bits más parejo al transmitir (menos memoria de buffer); alta, que conviven códigos muy cortos con muy largos. Entre códigos con la misma L̄ conviene el de menor varianza, y el Huffman de este códec ya construye ese.</li>
             <li><b>Línea discontinua (eje derecho):</b> la razón de compresión acumulada desde el inicio hasta ese bloque (bytes originales ÷ bytes comprimidos). Si sube, el archivo se está comprimiendo mejor a medida que avanza.</li>
             <li><b>Si H cambia mucho entre bloques</b>, la fuente no es estacionaria: un tramo del archivo es más predecible que otro. La KL(bloque‖global) de abajo mide qué tan distinto es cada bloque del archivo completo.</li>
           </ul>

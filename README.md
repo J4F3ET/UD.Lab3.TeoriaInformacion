@@ -59,7 +59,7 @@ Bytes crudos → Segmentación (N × k/8) → Análisis ANTES (H, I, KL, perfil 
 3. **Análisis (ANTES):** entropía, autoinformación, redundancia, KL frente a la fuente uniforme, y el perfil de entropía por posición de bit (para detectar bits constantes/redundantes).
 4. **Codificación (DURANTE):** longitudes de Huffman canónico sobre las frecuencias observadas; se miden H, longitud media y KL por bloques (para detectar no estacionariedad).
 5. **Selección de modo:** compara el tamaño estimado de Huffman vs. un modo "bitstrip" (solo bits variables, sin codificación de entropía) y escribe el más pequeño — así nunca expande el archivo más allá de la cabecera.
-6. **Decodificación (DESPUÉS):** reconstruye, verifica SHA-256 byte a byte y mide razón de compresión, eficiencia $\eta = H/\bar L$, entropía del flujo codificado y KL original vs. reconstruido.
+6. **Decodificación (DESPUÉS):** reconstruye, verifica SHA-256 byte a byte y mide razón de compresión, eficiencia $\eta = H/\bar L$, varianza de la longitud de código $\sigma^2 = \sum_k p_k (l_k - \bar L)^2$ (también por bloque en DURANTE; el Huffman canónico construye el de mínima varianza), entropía del flujo codificado y KL original vs. reconstruido.
 
 ### Cómo se cumple cada requisito
 

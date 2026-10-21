@@ -370,6 +370,7 @@ function pintarCodificacion(r) {
   // DESPUÉS
   const despues = [
     tarjeta("Eficiencia η = H/L̄", num(z.eficiencia_H_sobre_L, 4), `L̄ = ${num(z.L_media_huffman)} bits`),
+    tarjeta("Varianza de L (σ²)", num(z.varianza_L), `σ = ${num(z.desviacion_L)} bits · Σ pₖ(lₖ − L̄)²`),
     tarjeta("I(X;Y)", num(z.I_XY), z.sin_perdida_exacta ? "= H: sin pérdida" : "< H: con pérdida"),
     tarjeta("H flujo codificado", num(z.H_flujo_codificado_bits_por_byte), "bits/byte de 8"),
     tarjeta("Kraft · L máx", `${num(z.kraft_suma, 1)} · ${z.long_max_codigo}`, "código prefijo"),
@@ -469,11 +470,29 @@ function pintarDurante(d) {
   $("#durante-sub").textContent = `${n} bloques consecutivos del archivo`;
   $("#durante-x").replaceChildren(el("span", { text: "0" }), el("span", { text: Math.floor((n - 1) / 2) }), el("span", { text: n - 1 }));
 
+  pintarVarianza(d, x);
+
   const kl = d.map((b) => b.KL_bloque_vs_global);
   const iMax = kl.indexOf(Math.max(...kl));
   $("#durante-nota").textContent =
     `KL(bloque‖global) máxima en el bloque ${iMax} (${num(kl[iMax])} bits)` +
     `${kl[iMax] > 1 ? ": el archivo no es estacionario" : ""}; la razón acumulada termina en ${num(ultima)}.`;
+}
+
+// σ² = Σ pₖ(lₖ − L̄)² de cada bloque: qué tan disparejas son las longitudes de código.
+function pintarVarianza(d, x) {
+  const svg = $("#varianza-svg");
+  svg.replaceChildren(...[0, 60, 120].map((y) => svgEl("line", { x1: 0, y1: y, x2: 1000, y2: y, stroke: y === 120 ? "#3A4453" : "#262D38", "vector-effect": "non-scaling-stroke" })));
+  const v = d.map((b) => b.varianza_L_bloque);
+  const hi = Math.max(...v) * 1.1 || 1;
+  svg.append(svgEl("polygon", {
+    points: [`0,120`, ...v.map((val, i) => `${x(i)},${120 - (val / hi) * 120}`), `1000,120`].join(" "),
+    fill: "rgba(240,160,75,0.18)", stroke: "#F0A04B", "stroke-width": 1.5, "vector-effect": "non-scaling-stroke",
+  }));
+  const media = v.reduce((a, b) => a + b, 0) / v.length;
+  svg.setAttribute("aria-label", `Varianza de la longitud de código por bloque, entre ${num(Math.min(...v))} y ${num(Math.max(...v))}`);
+  $("#varianza-y").replaceChildren(el("span", { text: num(hi, 1) }), el("span", { text: num(hi / 2, 1) }), el("span", { text: "0" }));
+  $("#varianza-sub").textContent = `media ${num(media)} bits² · σ ≈ ${num(Math.sqrt(media), 2)} bits`;
 }
 
 // ═════════ 4 · Decodificar ═════════

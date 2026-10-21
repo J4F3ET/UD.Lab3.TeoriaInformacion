@@ -516,6 +516,14 @@ class HuffmanCanonico:
         n = frecuencias.sum()
         return float((frecuencias * self.longitudes).sum() / n)
 
+    def varianza_longitud(self, frecuencias: np.ndarray) -> float:
+        # σ² = Σ p_k · (l_k − L)²  (cuánto se alejan las longitudes de los códigos de su media L,
+        # ponderado por la probabilidad de cada símbolo). Una varianza baja da un flujo de bits
+        # más parejo: el transmisor necesita menos memoria (buffer) para absorber los altibajos.
+        p = frecuencias / frecuencias.sum()
+        L = float((p * self.longitudes).sum())
+        return float((p * (self.longitudes - L) ** 2).sum())
+
     def kraft(self) -> float:
         # Desigualdad de Kraft: Σ 2^(−longitud) ≤ 1 en todo código prefijo (= 1 si es completo).
         return float(np.sum(2.0 ** -self.longitudes))
@@ -652,6 +660,7 @@ class ReporteBloque:
     bloque: int
     H_bloque: float
     L_bloque: float
+    varianza_L_bloque: float   # σ² de la longitud de código dentro del bloque
     KL_bloque_vs_global: float
     razon_acumulada: float
 
@@ -669,6 +678,7 @@ class MetricasDespues:
     ahorro_pct: float
     bits_por_simbolo_real: float
     L_media_huffman: float
+    varianza_L: float          # σ² = Σ p_k·(l_k − L)²
     eficiencia_H_sobre_L: float
     redundancia_codigo_L_menos_H: float
     kraft_suma: float
@@ -696,6 +706,8 @@ class MetricasDespues:
             "ahorro_%": self.ahorro_pct,
             "bits_por_simbolo_real": self.bits_por_simbolo_real,
             "L_media_huffman": self.L_media_huffman,
+            "varianza_L": self.varianza_L,
+            "desviacion_L": math.sqrt(self.varianza_L),
             "eficiencia_H_sobre_L": self.eficiencia_H_sobre_L,
             "redundancia_codigo_L_menos_H": self.redundancia_codigo_L_menos_H,
             "kraft_suma": self.kraft_suma,
@@ -766,14 +778,14 @@ class ReporteCodificacion:
             print(f"  {'tras cuantizar (pérdida)':32} {a['tras_cuantizar']}")
         print("\n[DURANTE] (primeros y últimos bloques)")
         # {...:>6} alinea a la derecha en 6 caracteres (formato de tabla).
-        print(f"  {'bloque':>6} {'H':>10} {'L':>10} {'KL(blq‖glob)':>13} {'razón acum':>11}")
+        print(f"  {'bloque':>6} {'H':>10} {'L':>10} {'σ²(L)':>8} {'KL(blq‖glob)':>13} {'razón acum':>11}")
         d = self.durante
         # Si hay más de 6 bloques, se muestran solo los 3 primeros (d[:3]), una marca None
         # para imprimir "..." y los 3 últimos (d[-3:]). Si hay 6 o menos, se muestran todos.
         for r in (d[:3] + [None] + d[-3:]) if len(d) > 6 else d:
             if r is None:
                 print("     ..."); continue
-            print(f"  {r.bloque:>6} {r.H_bloque:>10.4f} {r.L_bloque:>10.4f} "
+            print(f"  {r.bloque:>6} {r.H_bloque:>10.4f} {r.L_bloque:>10.4f} {r.varianza_L_bloque:>8.3f} "
                   f"{r.KL_bloque_vs_global:>13.5f} {r.razon_acumulada:>11.3f}")
         print("\n[DESPUÉS]")
         # .items() recorre el diccionario dando parejas (clave c, valor v).
@@ -914,7 +926,8 @@ class CodecTIC:
             tamano_original_B=int(len(raw)), tamano_codificado_B=tam_final,
             razon_compresion=len(raw) / tam_final, ahorro_pct=100 * (1 - tam_final / len(raw)),
             bits_por_simbolo_real=tam_final * 8 / n,
-            L_media_huffman=Lmed, eficiencia_H_sobre_L=H_actual / Lmed,
+            L_media_huffman=Lmed, varianza_L=huffman.varianza_longitud(alfabeto.frecuencias),
+            eficiencia_H_sobre_L=H_actual / Lmed,
             redundancia_codigo_L_menos_H=Lmed - H_actual,
             kraft_suma=huffman.kraft(),
             long_max_codigo=huffman.longitud_maxima,
@@ -975,6 +988,8 @@ class CodecTIC:
                 bloque=b,
                 H_bloque=Informacion.entropia(cb),
                 L_bloque=float(huffman.longitudes[idx].mean()),
+                # .var() sobre las longitudes de cada aparición = Σ p_bloque·(l − L_bloque)².
+                varianza_L_bloque=float(huffman.longitudes[idx].var()),
                 KL_bloque_vs_global=float((pb * np.log2(pb / pg)).sum()),
                 # Bits originales acumulados (símbolos · k) / bits Huffman acumulados.
                 # max(1, ...) evita dividir entre 0.

@@ -368,6 +368,14 @@ Variantes medidas sobre este mismo flujo (todas con $\gamma$ = 0,98):
 ### Relación con 5G/6G (propuesta, no medida)
 La idea razonada es que en un enlace cuyo tráfico cambia de tipo (voz, video, datos) un transmisor podría elegir el tamaño de símbolo bloque a bloque con la razón que ya mide, sin tabla de reglas ni reentrenar, usando el barrido solo como respaldo cuando algo cambia. Esto es una propuesta de interpretación: lo único probado aquí es una simulación sobre archivos. No se midió latencia, ni el costo del barrido en tiempo, ni se probó en una red.
 
+### Llevado a la red 5G: compresión de paquetes (en `lab-free5gc`)
+La propuesta de arriba se probó en el laboratorio de red 5G ([`J4F3ET/lab-free5gc`](https://github.com/J4F3ET/lab-free5gc), `docs/08-compresion-paquetes.md` y carpeta `compresion/`). Lo que salió, con tráfico de prueba separado del de entrenamiento:
+
+- **El códec de este repo no es viable por paquete tal cual.** Un paquete IoT de 92 B se vuelve un `.tic` de 300 B (la cabecera JSON pesa más que el paquete). Huffman adaptativo con la tabla dentro de cada paquete expande o queda muy por debajo de DEFLATE, y k deja de tener sentido cuando un paquete entero es de 1 a 5 símbolos de 2048 bits.
+- **Lo que sí sirve:** comprimir cabeceras IP/UDP/RTP (ROHC: de 40 B a 5 B en voz) más DEFLATE con diccionario entrenado y memoria por flujo, que es lo que 3GPP hace en PDCP (ROHC y UDC). En IoT ahorra 81,8 %; en texto, 60,6 %; en TLS y video, nada.
+- **El bandido UCB con descuento se conserva**, pero elige **el códec** de cada paquete, incluido "ninguno", en vez de k. Ahorra 22,4 % del tráfico mezclado y solo le pasa al compresor la mitad de los bytes, porque aprende a no gastar CPU en tráfico cifrado. El barrido por paquete (probar todo) cuesta 5 veces la CPU y ahorra menos (18,1 %).
+- Se corrigió el límite 5 de arriba: allá los parámetros se ajustan con un conjunto de entrenamiento y se evalúa con otro.
+
 ## Supuestos declarados (por falta de las páginas 2-7 del enunciado)
 - **"N bits/símbolo"** se interpreta como la profundidad de codificación por símbolo de la fuente (cuántos bits representan cada símbolo antes de comprimir), igual que en el ejercicio de cuantificación PCM visto en clase.
 - **"IA en el proceso"** se interpreta como un componente que ayuda a decidir la codificación, no como un modelo generativo que reemplace la codificación. En concreto: un bandido UCB con descuento (`src/tic_bandido.py`) que elige k bloque a bloque y aprende en línea con la razón de compresión que el códec mide, sin etiquetas ni reentrenamiento.
@@ -381,7 +389,7 @@ La idea razonada es que en un enlace cuyo tráfico cambia de tipo (voz, video, d
 - [x] Video real (screen recording, 28,1 s, MP4 y RGB crudo) corrido y verificado — ver sección de arriba. Duración y resolución reducidas frente a los 5 min pedidos, por el límite de rendimiento del decodificador en Python puro (declarado en esa sección); las 4 fuentes del enunciado (imagen, audio, texto, video) ya están cubiertas.
 - [x] Calcular explícitamente $I(X;Y)$ entre la fuente original y la reconstruida — `Informacion.informacion_mutua()`, reportado como `I_XY` en todos los JSON (`= H` sin pérdida por definición; con `--perdida` se mide la información mutua real, ver ejemplo arriba).
 - [x] "IA en el proceso": `src/tic_bandido.py`, un bandido UCB con descuento (no un árbol de decisión) que elige k bloque a bloque y aprende en línea; simulado sobre un flujo de 173 bloques con razón global 1,5627 frente a 1,1207 de k = 8 fijo y 1,8503 del óptimo (arrepentimiento 6,993, 34 barridos de reinicio). Es una simulación con límites declarados (ver "Límites declarados"), no un sistema probado en una red.
-- [ ] Interpretar los resultados en el contexto de 5G/6G (relación entre k, latencia y ancho de banda). Parcialmente cubierto: hay una interpretación razonada en la sección del bandido, pero sin mediciones de red ni de latencia.
+- [ ] Interpretar los resultados en el contexto de 5G/6G (relación entre k, latencia y ancho de banda). Avanzado: la compresión por paquete se evaluó offline y con una prueba funcional en `lab-free5gc` (ver "Llevado a la red 5G"); falta medir sobre la red 5G real del LXC.
 
 ## Documentación
 - [`docs/Codec_adaptable_documentacion_tecnica.pdf`](docs/Codec_adaptable_documentacion_tecnica.pdf) — documentación técnica completa: fórmulas, formato del archivo `.tic`, Huffman canónico, límites del estimador de entropía.

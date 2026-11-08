@@ -1,0 +1,319 @@
+{
+ "imagen": {
+  "ancho": 4032,
+  "alto": 1387,
+  "H_bits_por_byte": 7.4147,
+  "puntos": [
+   {
+    "metodo": "png (sin pérdida)",
+    "parametro": "-",
+    "bytes": 3055048,
+    "bits_por_pixel": 4.3703,
+    "razon": 5.492,
+    "psnr_db": Infinity,
+    "info_entregada_pct": 100.0,
+    "segundos": 5.81
+   },
+   {
+    "metodo": "jpeg",
+    "parametro": 10,
+    "bytes": 109147,
+    "bits_por_pixel": 0.1561,
+    "razon": 153.712,
+    "psnr_db": 32.89,
+    "info_entregada_pct": 41.75,
+    "segundos": 0.15
+   },
+   {
+    "metodo": "jpeg",
+    "parametro": 20,
+    "bytes": 128440,
+    "bits_por_pixel": 0.1837,
+    "razon": 130.622,
+    "psnr_db": 37.25,
+    "info_entregada_pct": 50.5,
+    "segundos": 0.13
+   },
+   {
+    "metodo": "jpeg",
+    "parametro": 30,
+    "bytes": 152948,
+    "bits_por_pixel": 0.2188,
+    "razon": 109.692,
+    "psnr_db": 39.52,
+    "info_entregada_pct": 54.55,
+    "segundos": 0.13
+   },
+   {
+    "metodo": "jpeg",
+    "parametro": 50,
+    "bytes": 215675,
+    "bits_por_pixel": 0.3085,
+    "razon": 77.789,
+    "psnr_db": 41.82,
+    "info_entregada_pct": 59.05,
+    "segundos": 0.12
+   },
+   {
+    "metodo": "jpeg",
+    "parametro": 70,
+    "bytes": 326873,
+    "bits_por_pixel": 0.4676,
+    "razon": 51.326,
+    "psnr_db": 44.27,
+    "info_entregada_pct": 64.52,
+    "segundos": 0.33
+   },
+   {
+    "metodo": "jpeg",
+    "parametro": 85,
+    "bytes": 575416,
+    "bits_por_pixel": 0.8231,
+    "razon": 29.157,
+    "psnr_db": 47.7,
+    "info_entregada_pct": 72.52,
+    "segundos": 0.2
+   },
+   {
+    "metodo": "jpeg",
+    "parametro": 95,
+    "bytes": 900709,
+    "bits_por_pixel": 1.2885,
+    "razon": 18.627,
+    "psnr_db": 55.82,
+    "info_entregada_pct": 89.57,
+    "segundos": 0.21
+   },
+   {
+    "metodo": "webp",
+    "parametro": 10,
+    "bytes": 36918,
+    "bits_por_pixel": 0.0528,
+    "razon": 454.444,
+    "psnr_db": 37.41,
+    "info_entregada_pct": 51.0,
+    "segundos": 2.36
+   },
+   {
+    "metodo": "webp",
+    "parametro": 30,
+    "bytes": 49904,
+    "bits_por_pixel": 0.0714,
+    "razon": 336.189,
+    "psnr_db": 39.17,
+    "info_entregada_pct": 54.45,
+    "segundos": 1.98
+   },
+   {
+    "metodo": "webp",
+    "parametro": 50,
+    "bytes": 68338,
+    "bits_por_pixel": 0.0978,
+    "razon": 245.503,
+    "psnr_db": 40.36,
+    "info_entregada_pct": 56.43,
+    "segundos": 2.92
+   },
+   {
+    "metodo": "webp",
+    "parametro": 70,
+    "bytes": 93608,
+    "bits_por_pixel": 0.1339,
+    "razon": 179.228,
+    "psnr_db": 41.24,
+    "info_entregada_pct": 58.09,
+    "segundos": 3.72
+   },
+   {
+    "metodo": "webp",
+    "parametro": 90,
+    "bytes": 313170,
+    "bits_por_pixel": 0.448,
+    "razon": 53.572,
+    "psnr_db": 44.99,
+    "info_entregada_pct": 65.9,
+    "segundos": 6.33
+   },
+   {
+    "metodo": "cuantizar+zstd",
+    "parametro": 1,
+    "bytes": 3400962,
+    "bits_por_pixel": 4.8651,
+    "razon": 4.933,
+    "psnr_db": 51.13,
+    "info_entregada_pct": 86.53,
+    "segundos": 31.69
+   },
+   {
+    "metodo": "cuantizar+zstd",
+    "parametro": 2,
+    "bytes": 2377653,
+    "bits_por_pixel": 3.4013,
+    "razon": 7.056,
+    "psnr_db": 42.68,
+    "info_entregada_pct": 73.09,
+    "segundos": 21.88
+   },
+   {
+    "metodo": "cuantizar+zstd",
+    "parametro": 3,
+    "bytes": 1515916,
+    "bits_por_pixel": 2.1685,
+    "razon": 11.067,
+    "psnr_db": 35.68,
+    "info_entregada_pct": 59.77,
+    "segundos": 23.87
+   },
+   {
+    "metodo": "cuantizar+zstd",
+    "parametro": 4,
+    "bytes": 855030,
+    "bits_por_pixel": 1.2231,
+    "razon": 19.622,
+    "psnr_db": 29.26,
+    "info_entregada_pct": 46.72,
+    "segundos": 15.44
+   },
+   {
+    "metodo": "cuantizar+zstd",
+    "parametro": 5,
+    "bytes": 496642,
+    "bits_por_pixel": 0.7105,
+    "razon": 33.781,
+    "psnr_db": 23.26,
+    "info_entregada_pct": 34.39,
+    "segundos": 11.62
+   }
+  ],
+  "muestra": "franja superior de 4032×1387 píxeles de 4032×3024, guardada como BMP"
+ },
+ "audio": {
+  "muestras": 2357568,
+  "frecuencia_hz": 24000,
+  "H_bits_por_muestra": 13.6279,
+  "puntos": [
+   {
+    "metodo": "flac (sin pérdida)",
+    "parametro": "-",
+    "bytes": 2700718,
+    "bits_por_muestra": 9.164,
+    "kbps": 219.9,
+    "razon": 1.746,
+    "snr_db": Infinity,
+    "info_entregada_pct": 100.0,
+    "segundos": 0.16
+   },
+   {
+    "metodo": "mp3",
+    "parametro": 0.0,
+    "bytes": 1064424,
+    "bits_por_muestra": 3.612,
+    "kbps": 86.7,
+    "razon": 4.43,
+    "snr_db": 30.35,
+    "info_entregada_pct": 58.38,
+    "segundos": 4.19
+   },
+   {
+    "metodo": "mp3",
+    "parametro": 0.25,
+    "bytes": 785952,
+    "bits_por_muestra": 2.667,
+    "kbps": 64.0,
+    "razon": 5.999,
+    "snr_db": 25.68,
+    "info_entregada_pct": 56.08,
+    "segundos": 3.23
+   },
+   {
+    "metodo": "mp3",
+    "parametro": 0.5,
+    "bytes": 581232,
+    "bits_por_muestra": 1.972,
+    "kbps": 47.3,
+    "razon": 8.112,
+    "snr_db": 22.01,
+    "info_entregada_pct": 54.23,
+    "segundos": 3.86
+   },
+   {
+    "metodo": "mp3",
+    "parametro": 0.75,
+    "bytes": 463704,
+    "bits_por_muestra": 1.573,
+    "kbps": 37.8,
+    "razon": 10.168,
+    "snr_db": 20.26,
+    "info_entregada_pct": 52.94,
+    "segundos": 3.05
+   },
+   {
+    "metodo": "mp3",
+    "parametro": 0.95,
+    "bytes": 336888,
+    "bits_por_muestra": 1.143,
+    "kbps": 27.4,
+    "razon": 13.996,
+    "snr_db": 17.31,
+    "info_entregada_pct": 52.21,
+    "segundos": 2.82
+   },
+   {
+    "metodo": "cuantizar+flac",
+    "parametro": 2,
+    "bytes": 2146689,
+    "bits_por_muestra": 7.284,
+    "kbps": 174.8,
+    "razon": 2.196,
+    "snr_db": 67.41,
+    "info_entregada_pct": 85.43,
+    "segundos": 0.42
+   },
+   {
+    "metodo": "cuantizar+flac",
+    "parametro": 4,
+    "bytes": 1636522,
+    "bits_por_muestra": 5.553,
+    "kbps": 133.3,
+    "razon": 2.881,
+    "snr_db": 53.95,
+    "info_entregada_pct": 70.81,
+    "segundos": 0.4
+   },
+   {
+    "metodo": "cuantizar+flac",
+    "parametro": 6,
+    "bytes": 1174665,
+    "bits_por_muestra": 3.986,
+    "kbps": 95.7,
+    "razon": 4.014,
+    "snr_db": 41.53,
+    "info_entregada_pct": 56.26,
+    "segundos": 0.29
+   },
+   {
+    "metodo": "cuantizar+flac",
+    "parametro": 8,
+    "bytes": 795379,
+    "bits_por_muestra": 2.699,
+    "kbps": 64.8,
+    "razon": 5.928,
+    "snr_db": 29.25,
+    "info_entregada_pct": 42.01,
+    "segundos": 0.23
+   },
+   {
+    "metodo": "cuantizar+flac",
+    "parametro": 10,
+    "bytes": 515584,
+    "bits_por_muestra": 1.75,
+    "kbps": 42.0,
+    "razon": 9.145,
+    "snr_db": 17.15,
+    "info_entregada_pct": 28.21,
+    "segundos": 0.14
+   }
+  ],
+  "muestra": "el mismo audio reescrito como WAV PCM 16 bits (cabecera canónica)"
+ }
+}

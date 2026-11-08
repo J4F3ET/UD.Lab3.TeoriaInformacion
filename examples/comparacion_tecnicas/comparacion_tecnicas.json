@@ -1,0 +1,1956 @@
+{
+ "muestra_max_bytes": 16777216,
+ "posiciones_corrupcion": [
+  0.25,
+  0.5,
+  0.75
+ ],
+ "tecnicas": [
+  {
+   "nombre": "zlib-6",
+   "familia": "general",
+   "descripcion": "DEFLATE (LZ77 + Huffman), nivel por defecto de gzip",
+   "solo_para": []
+  },
+  {
+   "nombre": "zlib-9",
+   "familia": "general",
+   "descripcion": "DEFLATE, nivel máximo",
+   "solo_para": []
+  },
+  {
+   "nombre": "bz2-9",
+   "familia": "general",
+   "descripcion": "Burrows-Wheeler + Huffman (bzip2)",
+   "solo_para": []
+  },
+  {
+   "nombre": "lzma-6",
+   "familia": "general",
+   "descripcion": "LZMA2, el de .xz y 7-Zip",
+   "solo_para": []
+  },
+  {
+   "nombre": "zstd-3",
+   "familia": "general",
+   "descripcion": "Zstandard nivel 3 (por defecto): pensado para velocidad",
+   "solo_para": []
+  },
+  {
+   "nombre": "zstd-19",
+   "familia": "general",
+   "descripcion": "Zstandard nivel 19: máxima compresión",
+   "solo_para": []
+  },
+  {
+   "nombre": "flac",
+   "familia": "especializada",
+   "descripcion": "FLAC: predicción lineal de muestras + Rice",
+   "solo_para": [
+    "audio_wav"
+   ]
+  },
+  {
+   "nombre": "png",
+   "familia": "especializada",
+   "descripcion": "PNG: filtro por fila + DEFLATE",
+   "solo_para": [
+    "imagen_bmp"
+   ]
+  },
+  {
+   "nombre": "webp-sin-perdida",
+   "familia": "especializada",
+   "descripcion": "WebP en modo sin pérdida (predicción + LZ77 + códigos de color)",
+   "solo_para": [
+    "imagen_bmp"
+   ]
+  },
+  {
+   "nombre": "tic",
+   "familia": "referencia",
+   "descripcion": "Códec TIC del laboratorio (Huffman o bitstrip con k adaptable)",
+   "solo_para": []
+  }
+ ],
+ "archivos": {
+  "texto": {
+   "tipo": "texto",
+   "archivo": "texto_prueba.txt",
+   "nota": "apuntes de clase, texto plano",
+   "muestra": "archivo completo",
+   "bytes": 435588,
+   "H_bits_por_byte": 5.7777
+  },
+  "audio_wav": {
+   "tipo": "audio",
+   "archivo": "audio_prueba.wav",
+   "nota": "voz, PCM sin comprimir",
+   "muestra": "el mismo audio reescrito como WAV PCM 16 bits (cabecera canónica)",
+   "bytes": 4715180,
+   "H_bits_por_byte": 7.298
+  },
+  "audio_mp3": {
+   "tipo": "audio",
+   "archivo": "audio_prueba.mp3",
+   "nota": "la misma voz, ya comprimida con MP3",
+   "muestra": "archivo completo",
+   "bytes": 786126,
+   "H_bits_por_byte": 7.9644
+  },
+  "imagen_bmp": {
+   "tipo": "imagen",
+   "archivo": "imagen_prueba.bmp",
+   "nota": "foto, píxeles sin comprimir",
+   "muestra": "franja superior de 4032×1387 píxeles de 4032×3024, guardada como BMP",
+   "bytes": 16777206,
+   "H_bits_por_byte": 7.4147
+  },
+  "imagen_jpg": {
+   "tipo": "imagen",
+   "archivo": "imagen_prueba.jpg",
+   "nota": "la misma foto, ya comprimida con JPEG",
+   "muestra": "archivo completo",
+   "bytes": 1486484,
+   "H_bits_por_byte": 7.9479
+  },
+  "video_rgb": {
+   "tipo": "video",
+   "archivo": "video_prueba.rgb",
+   "nota": "grabación de pantalla, cuadros RGB crudos",
+   "muestra": "primeros 16 MB de 69.5 MB",
+   "bytes": 16777216,
+   "H_bits_por_byte": 5.0432
+  },
+  "video_mp4": {
+   "tipo": "video",
+   "archivo": "video_prueba.mp4",
+   "nota": "la misma grabación, ya comprimida con H.264",
+   "muestra": "archivo completo",
+   "bytes": 1444096,
+   "H_bits_por_byte": 7.8261
+  }
+ },
+ "resultados": [
+  {
+   "archivo": "texto",
+   "tecnica": "zlib-6",
+   "familia": "general",
+   "bytes_orig": 435588,
+   "bytes_comp": 176075,
+   "razon": 2.4739,
+   "ahorro_pct": 59.58,
+   "mb_s_comprimir": 7.05,
+   "mb_s_descomprimir": 72.13,
+   "exacto": true,
+   "recuperado_pct": 73.15,
+   "info_entregada_pct": 67.22,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 97.01,
+     "info_entregada_pct": 97.215
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 45.543,
+     "info_entregada_pct": 35.237
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 76.885,
+     "info_entregada_pct": 69.214
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "texto",
+   "tecnica": "zlib-9",
+   "familia": "general",
+   "bytes_orig": 435588,
+   "bytes_comp": 175902,
+   "razon": 2.4763,
+   "ahorro_pct": 59.62,
+   "mb_s_comprimir": 4.08,
+   "mb_s_descomprimir": 77.84,
+   "exacto": true,
+   "recuperado_pct": 80.07,
+   "info_entregada_pct": 76.75,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 97.103,
+     "info_entregada_pct": 97.306
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 46.104,
+     "info_entregada_pct": 35.825
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 97.004,
+     "info_entregada_pct": 97.129
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "texto",
+   "tecnica": "bz2-9",
+   "familia": "general",
+   "bytes_orig": 435588,
+   "bytes_comp": 171942,
+   "razon": 2.5333,
+   "ahorro_pct": 60.53,
+   "mb_s_comprimir": 3.11,
+   "mb_s_descomprimir": 6.77,
+   "exacto": true,
+   "recuperado_pct": 0.0,
+   "info_entregada_pct": 0.0,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 0.0,
+     "info_entregada_pct": 0.0
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 0.0,
+     "info_entregada_pct": 0.0
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 0.0,
+     "info_entregada_pct": 0.0
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "texto",
+   "tecnica": "lzma-6",
+   "familia": "general",
+   "bytes_orig": 435588,
+   "bytes_comp": 160868,
+   "razon": 2.7077,
+   "ahorro_pct": 63.07,
+   "mb_s_comprimir": 1.33,
+   "mb_s_descomprimir": 17.24,
+   "exacto": true,
+   "recuperado_pct": 38.53,
+   "info_entregada_pct": 41.78,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 13.021,
+     "info_entregada_pct": 15.283
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 35.848,
+     "info_entregada_pct": 40.658
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 66.726,
+     "info_entregada_pct": 69.393
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "texto",
+   "tecnica": "zstd-3",
+   "familia": "general",
+   "bytes_orig": 435588,
+   "bytes_comp": 177712,
+   "razon": 2.4511,
+   "ahorro_pct": 59.2,
+   "mb_s_comprimir": 63.05,
+   "mb_s_descomprimir": 301.17,
+   "exacto": true,
+   "recuperado_pct": 63.42,
+   "info_entregada_pct": 66.18,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 99.999
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 30.091,
+     "info_entregada_pct": 35.05
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 60.182,
+     "info_entregada_pct": 63.494
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "texto",
+   "tecnica": "zstd-19",
+   "familia": "general",
+   "bytes_orig": 435588,
+   "bytes_comp": 164002,
+   "razon": 2.656,
+   "ahorro_pct": 62.35,
+   "mb_s_comprimir": 1.39,
+   "mb_s_descomprimir": 166.44,
+   "exacto": true,
+   "recuperado_pct": 63.42,
+   "info_entregada_pct": 66.18,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 99.999,
+     "info_entregada_pct": 99.998
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 30.091,
+     "info_entregada_pct": 35.05
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 60.182,
+     "info_entregada_pct": 63.494
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "texto",
+   "tecnica": "tic",
+   "familia": "referencia",
+   "bytes_orig": 435588,
+   "bytes_comp": 305075,
+   "razon": 1.4278,
+   "ahorro_pct": 29.96,
+   "mb_s_comprimir": 0.2,
+   "mb_s_descomprimir": 1.2,
+   "exacto": true,
+   "recuperado_pct": 65.28,
+   "info_entregada_pct": 60.66,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 21.539,
+     "info_entregada_pct": 16.051
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 99.998,
+     "info_entregada_pct": 99.995
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 74.3,
+     "info_entregada_pct": 65.943
+    }
+   ],
+   "k_tic": 16
+  },
+  {
+   "archivo": "audio_wav",
+   "tecnica": "zlib-6",
+   "familia": "general",
+   "bytes_orig": 4715180,
+   "bytes_comp": 4040029,
+   "razon": 1.1671,
+   "ahorro_pct": 14.32,
+   "mb_s_comprimir": 10.02,
+   "mb_s_descomprimir": 127.51,
+   "exacto": true,
+   "recuperado_pct": 72.11,
+   "info_entregada_pct": 66.86,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 41.342,
+     "info_entregada_pct": 35.678
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 99.961,
+     "info_entregada_pct": 99.97
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 75.033,
+     "info_entregada_pct": 64.922
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "audio_wav",
+   "tecnica": "zlib-9",
+   "familia": "general",
+   "bytes_orig": 4715180,
+   "bytes_comp": 4040255,
+   "razon": 1.1671,
+   "ahorro_pct": 14.31,
+   "mb_s_comprimir": 6.3,
+   "mb_s_descomprimir": 70.76,
+   "exacto": true,
+   "recuperado_pct": 63.76,
+   "info_entregada_pct": 61.86,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 41.336,
+     "info_entregada_pct": 35.674
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 50.002,
+     "info_entregada_pct": 49.953
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 99.952,
+     "info_entregada_pct": 99.961
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "audio_wav",
+   "tecnica": "bz2-9",
+   "familia": "general",
+   "bytes_orig": 4715180,
+   "bytes_comp": 3506506,
+   "razon": 1.3447,
+   "ahorro_pct": 25.63,
+   "mb_s_comprimir": 4.63,
+   "mb_s_descomprimir": 7.21,
+   "exacto": true,
+   "recuperado_pct": 38.31,
+   "info_entregada_pct": 38.26,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 19.186,
+     "info_entregada_pct": 19.134
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 38.308,
+     "info_entregada_pct": 38.246
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 57.443,
+     "info_entregada_pct": 57.394
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "audio_wav",
+   "tecnica": "lzma-6",
+   "familia": "general",
+   "bytes_orig": 4715180,
+   "bytes_comp": 3626440,
+   "razon": 1.3002,
+   "ahorro_pct": 23.09,
+   "mb_s_comprimir": 1.9,
+   "mb_s_descomprimir": 10.49,
+   "exacto": true,
+   "recuperado_pct": 49.75,
+   "info_entregada_pct": 49.76,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 24.622,
+     "info_entregada_pct": 24.65
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 49.946,
+     "info_entregada_pct": 49.896
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 74.676,
+     "info_entregada_pct": 74.722
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "audio_wav",
+   "tecnica": "zstd-3",
+   "familia": "general",
+   "bytes_orig": 4715180,
+   "bytes_comp": 4037090,
+   "razon": 1.168,
+   "ahorro_pct": 14.38,
+   "mb_s_comprimir": 25.11,
+   "mb_s_descomprimir": 134.02,
+   "exacto": true,
+   "recuperado_pct": 100.0,
+   "info_entregada_pct": 100.0,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 99.999
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 99.999
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "audio_wav",
+   "tecnica": "zstd-19",
+   "familia": "general",
+   "bytes_orig": 4715180,
+   "bytes_comp": 3934365,
+   "razon": 1.1985,
+   "ahorro_pct": 16.56,
+   "mb_s_comprimir": 1.32,
+   "mb_s_descomprimir": 142.5,
+   "exacto": true,
+   "recuperado_pct": 74.68,
+   "info_entregada_pct": 74.6,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 24.318,
+     "info_entregada_pct": 24.342
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 99.73,
+     "info_entregada_pct": 99.454
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "audio_wav",
+   "tecnica": "flac",
+   "familia": "especializada",
+   "bytes_orig": 4715180,
+   "bytes_comp": 2700718,
+   "razon": 1.7459,
+   "ahorro_pct": 42.72,
+   "mb_s_comprimir": 22.74,
+   "mb_s_descomprimir": 46.47,
+   "exacto": true,
+   "recuperado_pct": 0.0,
+   "info_entregada_pct": 0.0,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": "LibsndfileError",
+     "recuperado_pct": 0.0,
+     "info_entregada_pct": 0.0
+    },
+    {
+     "posicion": 0.5,
+     "error": "LibsndfileError",
+     "recuperado_pct": 0.0,
+     "info_entregada_pct": 0.0
+    },
+    {
+     "posicion": 0.75,
+     "error": "LibsndfileError",
+     "recuperado_pct": 0.0,
+     "info_entregada_pct": 0.0
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "audio_wav",
+   "tecnica": "tic",
+   "familia": "referencia",
+   "bytes_orig": 4715180,
+   "bytes_comp": 4152261,
+   "razon": 1.1356,
+   "ahorro_pct": 11.94,
+   "mb_s_comprimir": 0.14,
+   "mb_s_descomprimir": 0.86,
+   "exacto": true,
+   "recuperado_pct": 53.13,
+   "info_entregada_pct": 50.38,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": "ValueError",
+     "recuperado_pct": 0.0,
+     "info_entregada_pct": 0.0
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 59.397,
+     "info_entregada_pct": 51.15
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    }
+   ],
+   "k_tic": 16
+  },
+  {
+   "archivo": "audio_mp3",
+   "tecnica": "zlib-6",
+   "familia": "general",
+   "bytes_orig": 786126,
+   "bytes_comp": 775501,
+   "razon": 1.0137,
+   "ahorro_pct": 1.35,
+   "mb_s_comprimir": 11.15,
+   "mb_s_descomprimir": 108.86,
+   "exacto": true,
+   "recuperado_pct": 83.59,
+   "info_entregada_pct": 79.76,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 99.81,
+     "info_entregada_pct": 99.82
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 51.142,
+     "info_entregada_pct": 39.639
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 99.81,
+     "info_entregada_pct": 99.82
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "audio_mp3",
+   "tecnica": "zlib-9",
+   "familia": "general",
+   "bytes_orig": 786126,
+   "bytes_comp": 775429,
+   "razon": 1.0138,
+   "ahorro_pct": 1.36,
+   "mb_s_comprimir": 10.73,
+   "mb_s_descomprimir": 110.31,
+   "exacto": true,
+   "recuperado_pct": 99.82,
+   "info_entregada_pct": 99.83,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 99.819,
+     "info_entregada_pct": 99.829
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 99.819,
+     "info_entregada_pct": 99.829
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 99.819,
+     "info_entregada_pct": 99.829
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "audio_mp3",
+   "tecnica": "bz2-9",
+   "familia": "general",
+   "bytes_orig": 786126,
+   "bytes_comp": 771878,
+   "razon": 1.0185,
+   "ahorro_pct": 1.81,
+   "mb_s_comprimir": 3.46,
+   "mb_s_descomprimir": 6.17,
+   "exacto": true,
+   "recuperado_pct": 0.0,
+   "info_entregada_pct": 0.0,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 0.0,
+     "info_entregada_pct": -0.0
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 0.0,
+     "info_entregada_pct": -0.0
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 0.0,
+     "info_entregada_pct": -0.0
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "audio_mp3",
+   "tecnica": "lzma-6",
+   "familia": "general",
+   "bytes_orig": 786126,
+   "bytes_comp": 776044,
+   "razon": 1.013,
+   "ahorro_pct": 1.28,
+   "mb_s_comprimir": 2.78,
+   "mb_s_descomprimir": 9.36,
+   "exacto": true,
+   "recuperado_pct": 49.92,
+   "info_entregada_pct": 49.89,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 24.807,
+     "info_entregada_pct": 24.807
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 50.003,
+     "info_entregada_pct": 49.897
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 74.948,
+     "info_entregada_pct": 74.952
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "audio_mp3",
+   "tecnica": "zstd-3",
+   "familia": "general",
+   "bytes_orig": 786126,
+   "bytes_comp": 779079,
+   "razon": 1.009,
+   "ahorro_pct": 0.9,
+   "mb_s_comprimir": 34.5,
+   "mb_s_descomprimir": 1777.82,
+   "exacto": true,
+   "recuperado_pct": 100.0,
+   "info_entregada_pct": 100.0,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "audio_mp3",
+   "tecnica": "zstd-19",
+   "familia": "general",
+   "bytes_orig": 786126,
+   "bytes_comp": 769155,
+   "razon": 1.0221,
+   "ahorro_pct": 2.16,
+   "mb_s_comprimir": 3.66,
+   "mb_s_descomprimir": 1663.8,
+   "exacto": true,
+   "recuperado_pct": 77.78,
+   "info_entregada_pct": 77.78,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 33.346,
+     "info_entregada_pct": 33.343
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "audio_mp3",
+   "tecnica": "tic",
+   "familia": "referencia",
+   "bytes_orig": 786126,
+   "bytes_comp": 784769,
+   "razon": 1.0017,
+   "ahorro_pct": 0.17,
+   "mb_s_comprimir": 0.15,
+   "mb_s_descomprimir": 0.77,
+   "exacto": true,
+   "recuperado_pct": 100.0,
+   "info_entregada_pct": 100.0,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    }
+   ],
+   "k_tic": 8
+  },
+  {
+   "archivo": "imagen_bmp",
+   "tecnica": "zlib-6",
+   "familia": "general",
+   "bytes_orig": 16777206,
+   "bytes_comp": 5122775,
+   "razon": 3.275,
+   "ahorro_pct": 69.47,
+   "mb_s_comprimir": 12.63,
+   "mb_s_descomprimir": 129.52,
+   "exacto": true,
+   "recuperado_pct": 52.67,
+   "info_entregada_pct": 59.08,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 36.149,
+     "info_entregada_pct": 49.085
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 50.943,
+     "info_entregada_pct": 53.93
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 70.919,
+     "info_entregada_pct": 74.214
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "imagen_bmp",
+   "tecnica": "zlib-9",
+   "familia": "general",
+   "bytes_orig": 16777206,
+   "bytes_comp": 5112027,
+   "razon": 3.2819,
+   "ahorro_pct": 69.53,
+   "mb_s_comprimir": 8.12,
+   "mb_s_descomprimir": 133.62,
+   "exacto": true,
+   "recuperado_pct": 51.22,
+   "info_entregada_pct": 58.8,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 31.094,
+     "info_entregada_pct": 41.748
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 51.447,
+     "info_entregada_pct": 59.166
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 71.124,
+     "info_entregada_pct": 75.496
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "imagen_bmp",
+   "tecnica": "bz2-9",
+   "familia": "general",
+   "bytes_orig": 16777206,
+   "bytes_comp": 3191485,
+   "razon": 5.2569,
+   "ahorro_pct": 80.98,
+   "mb_s_comprimir": 7.07,
+   "mb_s_descomprimir": 7.52,
+   "exacto": true,
+   "recuperado_pct": 43.44,
+   "info_entregada_pct": 44.85,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 21.974,
+     "info_entregada_pct": 22.415
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 43.441,
+     "info_entregada_pct": 44.509
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 64.898,
+     "info_entregada_pct": 67.624
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "imagen_bmp",
+   "tecnica": "lzma-6",
+   "familia": "general",
+   "bytes_orig": 16777206,
+   "bytes_comp": 3527548,
+   "razon": 4.7561,
+   "ahorro_pct": 78.97,
+   "mb_s_comprimir": 1.14,
+   "mb_s_descomprimir": 38.68,
+   "exacto": true,
+   "recuperado_pct": 48.29,
+   "info_entregada_pct": 49.93,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 27.19,
+     "info_entregada_pct": 27.731
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 48.685,
+     "info_entregada_pct": 49.95
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 68.987,
+     "info_entregada_pct": 72.105
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "imagen_bmp",
+   "tecnica": "zstd-3",
+   "familia": "general",
+   "bytes_orig": 16777206,
+   "bytes_comp": 5323799,
+   "razon": 3.1514,
+   "ahorro_pct": 68.27,
+   "mb_s_comprimir": 56.38,
+   "mb_s_descomprimir": 250.65,
+   "exacto": true,
+   "recuperado_pct": 75.42,
+   "info_entregada_pct": 75.6,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 26.27,
+     "info_entregada_pct": 26.787
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "imagen_bmp",
+   "tecnica": "zstd-19",
+   "familia": "general",
+   "bytes_orig": 16777206,
+   "bytes_comp": 3839010,
+   "razon": 4.3702,
+   "ahorro_pct": 77.12,
+   "mb_s_comprimir": 1.14,
+   "mb_s_descomprimir": 232.04,
+   "exacto": true,
+   "recuperado_pct": 58.07,
+   "info_entregada_pct": 58.66,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 26.563,
+     "info_entregada_pct": 27.088
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 47.656,
+     "info_entregada_pct": 48.885
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 99.999
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "imagen_bmp",
+   "tecnica": "png",
+   "familia": "especializada",
+   "bytes_orig": 16777206,
+   "bytes_comp": 3055048,
+   "razon": 5.4916,
+   "ahorro_pct": 81.79,
+   "mb_s_comprimir": 2.66,
+   "mb_s_descomprimir": 66.19,
+   "exacto": true,
+   "recuperado_pct": 0.0,
+   "info_entregada_pct": 0.0,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": "OSError",
+     "recuperado_pct": 0.0,
+     "info_entregada_pct": 0.0
+    },
+    {
+     "posicion": 0.5,
+     "error": "OSError",
+     "recuperado_pct": 0.0,
+     "info_entregada_pct": 0.0
+    },
+    {
+     "posicion": 0.75,
+     "error": "OSError",
+     "recuperado_pct": 0.0,
+     "info_entregada_pct": 0.0
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "imagen_bmp",
+   "tecnica": "webp-sin-perdida",
+   "familia": "especializada",
+   "bytes_orig": 16777206,
+   "bytes_comp": 2026850,
+   "razon": 8.2775,
+   "ahorro_pct": 87.92,
+   "mb_s_comprimir": 1.59,
+   "mb_s_descomprimir": 46.25,
+   "exacto": true,
+   "recuperado_pct": 58.7,
+   "info_entregada_pct": 55.74,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 29.228,
+     "info_entregada_pct": 26.649
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 50.693,
+     "info_entregada_pct": 45.423
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 96.167,
+     "info_entregada_pct": 95.149
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "imagen_bmp",
+   "tecnica": "tic",
+   "familia": "referencia",
+   "bytes_orig": 16777206,
+   "bytes_comp": 10033180,
+   "razon": 1.6722,
+   "ahorro_pct": 40.2,
+   "mb_s_comprimir": 0.3,
+   "mb_s_descomprimir": 1.49,
+   "exacto": true,
+   "recuperado_pct": 80.31,
+   "info_entregada_pct": 82.37,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 40.939,
+     "info_entregada_pct": 47.115
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    }
+   ],
+   "k_tic": 32
+  },
+  {
+   "archivo": "imagen_jpg",
+   "tecnica": "zlib-6",
+   "familia": "general",
+   "bytes_orig": 1486484,
+   "bytes_comp": 1483535,
+   "razon": 1.002,
+   "ahorro_pct": 0.2,
+   "mb_s_comprimir": 10.02,
+   "mb_s_descomprimir": 179.6,
+   "exacto": true,
+   "recuperado_pct": 99.95,
+   "info_entregada_pct": 99.95,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 99.948,
+     "info_entregada_pct": 99.949
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 99.947,
+     "info_entregada_pct": 99.949
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 99.947,
+     "info_entregada_pct": 99.948
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "imagen_jpg",
+   "tecnica": "zlib-9",
+   "familia": "general",
+   "bytes_orig": 1486484,
+   "bytes_comp": 1483534,
+   "razon": 1.002,
+   "ahorro_pct": 0.2,
+   "mb_s_comprimir": 12.9,
+   "mb_s_descomprimir": 237.81,
+   "exacto": true,
+   "recuperado_pct": 99.95,
+   "info_entregada_pct": 99.95,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 99.948,
+     "info_entregada_pct": 99.949
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 99.948,
+     "info_entregada_pct": 99.949
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 99.947,
+     "info_entregada_pct": 99.948
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "imagen_jpg",
+   "tecnica": "bz2-9",
+   "familia": "general",
+   "bytes_orig": 1486484,
+   "bytes_comp": 1462855,
+   "razon": 1.0162,
+   "ahorro_pct": 1.59,
+   "mb_s_comprimir": 3.71,
+   "mb_s_descomprimir": 5.72,
+   "exacto": true,
+   "recuperado_pct": 20.18,
+   "info_entregada_pct": 20.18,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 0.0,
+     "info_entregada_pct": -0.0
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 0.0,
+     "info_entregada_pct": -0.0
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 60.553,
+     "info_entregada_pct": 60.527
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "imagen_jpg",
+   "tecnica": "lzma-6",
+   "familia": "general",
+   "bytes_orig": 1486484,
+   "bytes_comp": 1484036,
+   "razon": 1.0016,
+   "ahorro_pct": 0.16,
+   "mb_s_comprimir": 2.57,
+   "mb_s_descomprimir": 26.73,
+   "exacto": true,
+   "recuperado_pct": 83.25,
+   "info_entregada_pct": 83.25,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 99.916,
+     "info_entregada_pct": 99.917
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 49.905,
+     "info_entregada_pct": 49.921
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 99.916,
+     "info_entregada_pct": 99.917
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "imagen_jpg",
+   "tecnica": "zstd-3",
+   "familia": "general",
+   "bytes_orig": 1486484,
+   "bytes_comp": 1486529,
+   "razon": 1.0,
+   "ahorro_pct": -0.0,
+   "mb_s_comprimir": 304.02,
+   "mb_s_descomprimir": 2705.38,
+   "exacto": true,
+   "recuperado_pct": 100.0,
+   "info_entregada_pct": 100.0,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "imagen_jpg",
+   "tecnica": "zstd-19",
+   "familia": "general",
+   "bytes_orig": 1486484,
+   "bytes_comp": 1481743,
+   "razon": 1.0032,
+   "ahorro_pct": 0.32,
+   "mb_s_comprimir": 3.95,
+   "mb_s_descomprimir": 813.23,
+   "exacto": true,
+   "recuperado_pct": 100.0,
+   "info_entregada_pct": 100.0,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 99.999,
+     "info_entregada_pct": 99.999
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "imagen_jpg",
+   "tecnica": "tic",
+   "familia": "referencia",
+   "bytes_orig": 1486484,
+   "bytes_comp": 1483170,
+   "razon": 1.0022,
+   "ahorro_pct": 0.22,
+   "mb_s_comprimir": 0.16,
+   "mb_s_descomprimir": 0.83,
+   "exacto": true,
+   "recuperado_pct": 100.0,
+   "info_entregada_pct": 100.0,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    }
+   ],
+   "k_tic": 8
+  },
+  {
+   "archivo": "video_rgb",
+   "tecnica": "zlib-6",
+   "familia": "general",
+   "bytes_orig": 16777216,
+   "bytes_comp": 3401721,
+   "razon": 4.932,
+   "ahorro_pct": 79.72,
+   "mb_s_comprimir": 24.02,
+   "mb_s_descomprimir": 205.51,
+   "exacto": true,
+   "recuperado_pct": 79.33,
+   "info_entregada_pct": 78.5,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 71.051,
+     "info_entregada_pct": 73.616
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 82.523,
+     "info_entregada_pct": 82.688
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 84.401,
+     "info_entregada_pct": 79.209
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "video_rgb",
+   "tecnica": "zlib-9",
+   "familia": "general",
+   "bytes_orig": 16777216,
+   "bytes_comp": 3351367,
+   "razon": 5.0061,
+   "ahorro_pct": 80.02,
+   "mb_s_comprimir": 8.11,
+   "mb_s_descomprimir": 151.59,
+   "exacto": true,
+   "recuperado_pct": 73.8,
+   "info_entregada_pct": 65.47,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 71.945,
+     "info_entregada_pct": 64.396
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 64.599,
+     "info_entregada_pct": 54.833
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 84.854,
+     "info_entregada_pct": 77.19
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "video_rgb",
+   "tecnica": "bz2-9",
+   "familia": "general",
+   "bytes_orig": 16777216,
+   "bytes_comp": 194091,
+   "razon": 86.4399,
+   "ahorro_pct": 98.84,
+   "mb_s_comprimir": 2.7,
+   "mb_s_descomprimir": 17.02,
+   "exacto": true,
+   "recuperado_pct": 49.31,
+   "info_entregada_pct": 49.31,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 21.143,
+     "info_entregada_pct": 21.139
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 52.836,
+     "info_entregada_pct": 52.847
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 73.939,
+     "info_entregada_pct": 73.939
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "video_rgb",
+   "tecnica": "lzma-6",
+   "familia": "general",
+   "bytes_orig": 16777216,
+   "bytes_comp": 27820,
+   "razon": 603.0631,
+   "ahorro_pct": 99.83,
+   "mb_s_comprimir": 6.25,
+   "mb_s_descomprimir": 338.7,
+   "exacto": true,
+   "recuperado_pct": 32.31,
+   "info_entregada_pct": 32.31,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 0.154,
+     "info_entregada_pct": 0.158
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 32.24,
+     "info_entregada_pct": 32.245
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 64.527,
+     "info_entregada_pct": 64.53
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "video_rgb",
+   "tecnica": "zstd-3",
+   "familia": "general",
+   "bytes_orig": 16777216,
+   "bytes_comp": 52242,
+   "razon": 321.1442,
+   "ahorro_pct": 99.69,
+   "mb_s_comprimir": 1199.66,
+   "mb_s_descomprimir": 1236.86,
+   "exacto": true,
+   "recuperado_pct": 99.99,
+   "info_entregada_pct": 99.99,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 99.984,
+     "info_entregada_pct": 99.973
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "video_rgb",
+   "tecnica": "zstd-19",
+   "familia": "general",
+   "bytes_orig": 16777216,
+   "bytes_comp": 41248,
+   "razon": 406.7401,
+   "ahorro_pct": 99.75,
+   "mb_s_comprimir": 63.09,
+   "mb_s_descomprimir": 1671.66,
+   "exacto": true,
+   "recuperado_pct": 54.8,
+   "info_entregada_pct": 54.8,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 0.0,
+     "info_entregada_pct": 0.0
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 64.404,
+     "info_entregada_pct": 64.41
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "video_rgb",
+   "tecnica": "tic",
+   "familia": "referencia",
+   "bytes_orig": 16777216,
+   "bytes_comp": 1919701,
+   "razon": 8.7395,
+   "ahorro_pct": 88.56,
+   "mb_s_comprimir": 0.69,
+   "mb_s_descomprimir": 5.91,
+   "exacto": true,
+   "recuperado_pct": 73.33,
+   "info_entregada_pct": 67.81,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 61.527,
+     "info_entregada_pct": 59.024
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 71.501,
+     "info_entregada_pct": 64.629
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 86.972,
+     "info_entregada_pct": 79.78
+    }
+   ],
+   "k_tic": 64
+  },
+  {
+   "archivo": "video_mp4",
+   "tecnica": "zlib-6",
+   "familia": "general",
+   "bytes_orig": 1444096,
+   "bytes_comp": 1305835,
+   "razon": 1.1059,
+   "ahorro_pct": 9.57,
+   "mb_s_comprimir": 12.52,
+   "mb_s_descomprimir": 174.9,
+   "exacto": true,
+   "recuperado_pct": 99.33,
+   "info_entregada_pct": 99.71,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 99.335,
+     "info_entregada_pct": 99.712
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 99.335,
+     "info_entregada_pct": 99.712
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 99.335,
+     "info_entregada_pct": 99.712
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "video_mp4",
+   "tecnica": "zlib-9",
+   "familia": "general",
+   "bytes_orig": 1444096,
+   "bytes_comp": 1303407,
+   "razon": 1.1079,
+   "ahorro_pct": 9.74,
+   "mb_s_comprimir": 10.39,
+   "mb_s_descomprimir": 141.56,
+   "exacto": true,
+   "recuperado_pct": 99.82,
+   "info_entregada_pct": 99.92,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 99.819,
+     "info_entregada_pct": 99.921
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 99.819,
+     "info_entregada_pct": 99.921
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 99.819,
+     "info_entregada_pct": 99.921
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "video_mp4",
+   "tecnica": "bz2-9",
+   "familia": "general",
+   "bytes_orig": 1444096,
+   "bytes_comp": 1292515,
+   "razon": 1.1173,
+   "ahorro_pct": 10.5,
+   "mb_s_comprimir": 4.14,
+   "mb_s_descomprimir": 7.2,
+   "exacto": true,
+   "recuperado_pct": 21.22,
+   "info_entregada_pct": 21.24,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 0.0,
+     "info_entregada_pct": 0.0
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 0.0,
+     "info_entregada_pct": 0.0
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 63.661,
+     "info_entregada_pct": 63.722
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "video_mp4",
+   "tecnica": "lzma-6",
+   "familia": "general",
+   "bytes_orig": 1444096,
+   "bytes_comp": 1245712,
+   "razon": 1.1593,
+   "ahorro_pct": 13.74,
+   "mb_s_comprimir": 2.75,
+   "mb_s_descomprimir": 10.77,
+   "exacto": true,
+   "recuperado_pct": 49.53,
+   "info_entregada_pct": 49.6,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 24.028,
+     "info_entregada_pct": 24.045
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 49.724,
+     "info_entregada_pct": 49.757
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 74.83,
+     "info_entregada_pct": 75.009
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "video_mp4",
+   "tecnica": "zstd-3",
+   "familia": "general",
+   "bytes_orig": 1444096,
+   "bytes_comp": 1272328,
+   "razon": 1.135,
+   "ahorro_pct": 11.89,
+   "mb_s_comprimir": 43.0,
+   "mb_s_descomprimir": 1280.64,
+   "exacto": true,
+   "recuperado_pct": 100.0,
+   "info_entregada_pct": 100.0,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "video_mp4",
+   "tecnica": "zstd-19",
+   "familia": "general",
+   "bytes_orig": 1444096,
+   "bytes_comp": 1236791,
+   "razon": 1.1676,
+   "ahorro_pct": 14.36,
+   "mb_s_comprimir": 3.49,
+   "mb_s_descomprimir": 976.67,
+   "exacto": true,
+   "recuperado_pct": 100.0,
+   "info_entregada_pct": 100.0,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    }
+   ],
+   "k_tic": null
+  },
+  {
+   "archivo": "video_mp4",
+   "tecnica": "tic",
+   "familia": "referencia",
+   "bytes_orig": 1444096,
+   "bytes_comp": 1417996,
+   "razon": 1.0184,
+   "ahorro_pct": 1.81,
+   "mb_s_comprimir": 0.18,
+   "mb_s_descomprimir": 0.88,
+   "exacto": true,
+   "recuperado_pct": 76.11,
+   "info_entregada_pct": 69.07,
+   "detalle_corrupcion": [
+    {
+     "posicion": 0.25,
+     "error": null,
+     "recuperado_pct": 100.0,
+     "info_entregada_pct": 100.0
+    },
+    {
+     "posicion": 0.5,
+     "error": null,
+     "recuperado_pct": 52.383,
+     "info_entregada_pct": 40.59
+    },
+    {
+     "posicion": 0.75,
+     "error": null,
+     "recuperado_pct": 75.944,
+     "info_entregada_pct": 66.61
+    }
+   ],
+   "k_tic": 8
+  }
+ ]
+}

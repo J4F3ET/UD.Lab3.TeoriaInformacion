@@ -15,6 +15,13 @@ Diseñar un sistema adaptable para N ∈ {8, 16, 32, 64, 128, 256, 512, 1024, 20
 - Mida cantidad de información $I$, entropía $H$, información mutua $I(X;Y)$ y divergencia KL, interpretando los resultados.
 - Contextualice todo en redes 5G/6G.
 
+**Actualización del tablero (26 oct 2026, entrega 11 nov 2026):**
+- **(a)** Codificación/compresión con **N = 8 … 3768**, optimizada con IA buscando más tasa de compresión, velocidad y confiabilidad, sobre audio, video, imagen y texto.
+- **(b)** Comparar e implementar técnicas de compresión **actuales** con IA, midiendo desempeño, calidad, velocidad y confiabilidad.
+- **(c)** Aplicarlo al contexto 5G/6G, midiendo la información mutua entre el original, el comprimido y el recuperado.
+
+Lo nuevo para (a), (b) y (c) está en la sección "Segunda entrega" más abajo.
+
 ## Qué hay implementado: `src/tic_codec.py`
 Un códec sin pérdida (con pérdida opcional) que modela **cualquier archivo** (imagen, video, audio, texto — se trabaja sobre bytes crudos) como una fuente discreta de símbolos de k bits, con k adaptable de 8 a 2048 (probado hasta 32 888, cualquier múltiplo de 8). Solo depende de NumPy (Matplotlib es opcional, para graficar).
 
@@ -66,7 +73,7 @@ Bytes crudos → Segmentación (N × k/8) → Análisis ANTES (H, I, KL, perfil 
 | Requisito del laboratorio | Cómo se cumple en el código |
 |---|---|
 | Codificar/decodificar grandes volúmenes | Procesamiento vectorizado por lotes; decodificación con tabla de hasta 2^16 entradas |
-| k adaptable de 8 a 2048 (reto 32 888) | Parámetro `-k`, cualquier múltiplo de 8 |
+| k adaptable de 8 a 2048 (reto 32 888; el tablero pide hasta 3768 = 471 × 8) | Parámetro `-k`, cualquier múltiplo de 8 |
 | Imágenes, video, documentos | Se opera sobre los bytes crudos del archivo, sin asumir formato |
 | Fuente uniforme o no uniforme | Clasificación automática por H/k y D_KL(P‖U); generador de fuentes sintéticas de ambos tipos |
 | Identificar bits redundantes | Perfil de entropía binaria por posición; se eliminan del diccionario las posiciones constantes |
@@ -368,6 +375,81 @@ Variantes medidas sobre este mismo flujo (todas con $\gamma$ = 0,98):
 ### Relación con 5G/6G (propuesta, no medida)
 La idea razonada es que en un enlace cuyo tráfico cambia de tipo (voz, video, datos) un transmisor podría elegir el tamaño de símbolo bloque a bloque con la razón que ya mide, sin tabla de reglas ni reentrenar, usando el barrido solo como respaldo cuando algo cambia. Esto es una propuesta de interpretación: lo único probado aquí es una simulación sobre archivos. No se midió latencia, ni el costo del barrido en tiempo, ni se probó en una red.
 
+### Llevado a la red 5G: compresión de paquetes (en `lab-free5gc`)
+La propuesta de arriba se probó en el laboratorio de red 5G ([`J4F3ET/lab-free5gc`](https://github.com/J4F3ET/lab-free5gc), `docs/08-compresion-paquetes.md` y carpeta `compresion/`). Lo que salió, con tráfico de prueba separado del de entrenamiento:
+
+- **El códec de este repo no es viable por paquete tal cual.** Un paquete IoT de 92 B se vuelve un `.tic` de 300 B (la cabecera JSON pesa más que el paquete). Huffman adaptativo con la tabla dentro de cada paquete expande o queda muy por debajo de DEFLATE, y k deja de tener sentido cuando un paquete entero es de 1 a 5 símbolos de 2048 bits.
+- **Lo que sí sirve:** comprimir cabeceras IP/UDP/RTP (ROHC: de 40 B a 5 B en voz) más DEFLATE con diccionario entrenado y memoria por flujo, que es lo que 3GPP hace en PDCP (ROHC y UDC). En IoT ahorra 81,8 %; en texto, 60,6 %; en TLS y video, nada.
+- **El bandido UCB con descuento se conserva**, pero elige **el códec** de cada paquete, incluido "ninguno", en vez de k. Ahorra 22,4 % del tráfico mezclado y solo le pasa al compresor la mitad de los bytes, porque aprende a no gastar CPU en tráfico cifrado. El barrido por paquete (probar todo) cuesta 5 veces la CPU y ahorra menos (18,1 %).
+- Se corrigió el límite 5 de arriba: allá los parámetros se ajustan con un conjunto de entrenamiento y se evalúa con otro.
+
+## Segunda entrega: técnicas actuales, IA por velocidad y calidad
+
+Cuatro scripts nuevos, cada uno con su salida (JSON, tabla en Markdown y gráfica) en `examples/`. Corren sobre los archivos reales de `data/` (`--datos` para otra carpeta). Los archivos de más de 16 MB (el RGB de 73 MB y el BMP de 36 MB) se cortan a una muestra fija de 16 MB para que lzma y TIC terminen en minutos.
+
+### N = 3768 (punto a)
+
+El códec acepta cualquier múltiplo de 8 y 3768 lo es (471 bytes por símbolo). Ida y vuelta con `-k 3768`, verificada con SHA-256:
+
+| archivo | original | `.tic` | razón |
+|---|---:|---:|---:|
+| texto_prueba.txt | 435 588 B | 437 799 B | 0,995 |
+| WAV PCM 16 bits | 4 715 180 B | 4 717 311 B | 1,000 |
+| imagen_prueba.jpg | 1 486 484 B | 1 489 075 B | 0,998 |
+| video_prueba.mp4 | 1 444 096 B | 1 446 685 B | 0,998 |
+
+Reconstruye bit a bit, pero **no comprime**: con símbolos de 471 bytes casi ninguno se repite en un archivo real, así que el modelo de Huffman no tiene qué aprovechar y el `.tic` queda del tamaño del original más la cabecera. En los mismos archivos el mejor k es chico (k = 16 en texto, razón 1,43). Por eso la IA tiene que elegir N: el más grande no es el mejor.
+
+### Técnicas actuales frente a TIC (punto b): `src/comparar_tecnicas.py`
+
+zlib (6 y 9), bz2, lzma, zstd (3 y 19), FLAC para el WAV, PNG y WebP sin pérdida para el BMP, y TIC con su mejor k. Mide razón, MB/s al comprimir y descomprimir, verificación SHA-256 y **confiabilidad**: se invierte 1 byte del comprimido (al 25, 50 y 75 % del largo) y se mide qué parte de la información llega, I(X;Y)/H(X), con descompresión tolerante por trozos. Tabla completa: [`examples/comparacion_tecnicas/comparacion_tecnicas.md`](examples/comparacion_tecnicas/comparacion_tecnicas.md).
+
+| fuente | mejor razón | zstd-3 (rápido) | TIC | prueba de 1 byte dañado |
+|---|---|---|---|---|
+| texto | lzma-6: 2,71 (1,3 MB/s) | 2,45 (63 MB/s) | 1,43 (k = 16) | bz2 entrega 0 % |
+| WAV | FLAC: 1,75 (23 MB/s) | 1,17 | 1,14 | FLAC entrega 0 %, zstd-3 100 % |
+| BMP | WebP sin pérdida: 8,28 | 3,15 (56 MB/s) | 1,67 (k = 32) | PNG entrega 0 % |
+| video RGB crudo | lzma: 603 | 321 | 8,7 | — |
+| MP3 / JPG / MP4 | ≈ 1,0 en todas | | | ya vienen comprimidos |
+
+Lo que muestra: las técnicas actuales le ganan a TIC en razón y en velocidad (TIC va a ~0,2 MB/s en Python puro), y **comprimir más no es lo mismo que ser confiable**: los formatos que más encadenan el estado (bz2, FLAC, PNG) pierden todo con un solo byte malo, mientras zstd-3 suele entregar casi todo.
+
+### IA que elige la técnica y premia la velocidad (puntos a y b): `src/bandido_tecnicas.py`
+
+El mismo `BandidoUCBDescontado` de `tic_bandido.py`, sobre el mismo flujo de 173 bloques de 256 KB, pero los brazos son técnicas (ninguna, zlib-6, zstd-3, zstd-19, bz2-9, lzma-6) y la recompensa puede incluir el tiempo: r = ahorro − t_cpu · v / (8 · bytes), la fracción del tiempo de transmisión que se ahorra a velocidad de enlace v, neta de lo que tarda comprimir (la misma fórmula que el bandido por latencia de `lab-free5gc`). Tabla completa: [`examples/bandido_tecnicas/bandido_tecnicas.md`](examples/bandido_tecnicas/bandido_tecnicas.md).
+
+- **Solo razón:** razón global 2,147 frente a 2,286 del óptimo y 2,255 de "siempre lzma", con 9,8 s de CPU frente a 15,8 s.
+- **Con la velocidad del enlace** cambia lo que elige, como debe: a 10 y 100 Mbps se queda con zstd-3 (y "ninguna" en los datos aleatorios, que no se comprimen); a 1 Gbps manda "ninguna" en la mitad de los bloques, porque comprimir tarda más que transmitir.
+- **Explorar cuesta:** a 100 Mbps el bandido tarda 3,24 s en total frente a 2,12 s de "siempre zstd-3". Con tan pocos bloques por tramo la exploración no se paga; es el mismo límite declarado de `tic_bandido.py`.
+
+### Calidad: curvas tasa–distorsión (punto b): `src/tasa_distorsion.py`
+
+Todo lo anterior es sin pérdida (calidad 100 %). Para medir **calidad**: imagen (BMP) con JPEG calidad 10–95, WebP 10–90 y cuantizar 1–5 bits + zstd; audio (WAV) con MP3 y cuantizar 2–10 bits + FLAC. Por cada punto: bits por píxel o kbps, PSNR o SNR, e I(X;Y)/H(X). Tabla y gráfica: [`examples/tasa_distorsion/tasa_distorsion.md`](examples/tasa_distorsion/tasa_distorsion.md).
+
+- **Imagen:** WebP calidad 10 da 37,4 dB a 0,053 bits/píxel (razón 454); JPEG necesita 0,184 bits/píxel para la misma calidad. Cuantizar y comprimir es mucho peor: 35,7 dB cuesta 2,17 bits/píxel.
+- **Audio:** MP3 rinde más por debajo de ~60 kbps; por encima gana cuantizar + FLAC. El SNR castiga al MP3, que optimiza lo que se oye y no la forma de onda.
+- **I(X;Y)/H(X) baja con la tasa** en todos: es la información que se decide no mandar. Video y texto quedan sin pérdida: el texto no la admite y el MP4 ya viene con pérdida.
+
+### Aplicado a la red 5G (punto c)
+
+En `lab-free5gc` (`docs/08-compresion-paquetes.md`) se agregó un compresor **con pérdida acotada** para la telemetría IoT (`predictivo_iot`: 85,7 % de ahorro con error ≤ paso/2, el primer algoritmo con I(O;R) < H(O) a propósito) y una página para mandar un archivo real por la red 5G, ida y vuelta, a través del compresor. Probada con archivos de `data/`: el texto y el MP3 vuelven idénticos (I(O;R) = H(O)); el texto ahorra 52 % en cada sentido y en el MP3 el bandido aprende a mandar "ninguno".
+
+### 6G: todo o nada contra degradación gradual: `src/acantilado_6g.py`
+
+Simulación (no 6G implementado) de la idea de codificación conjunta fuente-canal: la misma imagen por un canal con ruido, digital (JPEG + código ideal, como 5G) contra analógico al estilo SoftCast. El digital cae de golpe por debajo de su SNR de diseño; el analógico se degrada de a poco. Explicación para principiantes y tabla: [`examples/acantilado_6g/acantilado_6g.md`](examples/acantilado_6g/acantilado_6g.md).
+
+### Cómo correrlo
+
+```bash
+python src/comparar_tecnicas.py            # punto b: técnicas actuales (≈ 15 min)
+python src/bandido_tecnicas.py             # IA que elige la técnica (≈ 5 min)
+python src/tasa_distorsion.py              # calidad: curvas tasa-distorsión (≈ 10 min)
+python src/acantilado_6g.py                # 6G (≈ 5 s)
+python -m pytest tests                     # 12 pruebas
+```
+
+Dependencias extra, todas opcionales (la técnica que falte se salta): `zstandard` (o Python 3.14), `Pillow`, `soundfile`, `brotli`.
+
 ## Supuestos declarados (por falta de las páginas 2-7 del enunciado)
 - **"N bits/símbolo"** se interpreta como la profundidad de codificación por símbolo de la fuente (cuántos bits representan cada símbolo antes de comprimir), igual que en el ejercicio de cuantificación PCM visto en clase.
 - **"IA en el proceso"** se interpreta como un componente que ayuda a decidir la codificación, no como un modelo generativo que reemplace la codificación. En concreto: un bandido UCB con descuento (`src/tic_bandido.py`) que elige k bloque a bloque y aprende en línea con la razón de compresión que el códec mide, sin etiquetas ni reentrenamiento.
@@ -381,7 +463,8 @@ La idea razonada es que en un enlace cuyo tráfico cambia de tipo (voz, video, d
 - [x] Video real (screen recording, 28,1 s, MP4 y RGB crudo) corrido y verificado — ver sección de arriba. Duración y resolución reducidas frente a los 5 min pedidos, por el límite de rendimiento del decodificador en Python puro (declarado en esa sección); las 4 fuentes del enunciado (imagen, audio, texto, video) ya están cubiertas.
 - [x] Calcular explícitamente $I(X;Y)$ entre la fuente original y la reconstruida — `Informacion.informacion_mutua()`, reportado como `I_XY` en todos los JSON (`= H` sin pérdida por definición; con `--perdida` se mide la información mutua real, ver ejemplo arriba).
 - [x] "IA en el proceso": `src/tic_bandido.py`, un bandido UCB con descuento (no un árbol de decisión) que elige k bloque a bloque y aprende en línea; simulado sobre un flujo de 173 bloques con razón global 1,5627 frente a 1,1207 de k = 8 fijo y 1,8503 del óptimo (arrepentimiento 6,993, 34 barridos de reinicio). Es una simulación con límites declarados (ver "Límites declarados"), no un sistema probado en una red.
-- [ ] Interpretar los resultados en el contexto de 5G/6G (relación entre k, latencia y ancho de banda). Parcialmente cubierto: hay una interpretación razonada en la sección del bandido, pero sin mediciones de red ni de latencia.
+- [x] Interpretar los resultados en el contexto de 5G/6G: compresión por paquete en `lab-free5gc`, medida sobre la red 5G real del LXC con archivos de `data/` (ver "Aplicado a la red 5G"), y la simulación de 6G (`src/acantilado_6g.py`).
+- [x] Técnicas actuales, IA que premia la velocidad y calidad (tasa–distorsión): ver "Segunda entrega".
 
 ## Documentación
 - [`docs/Codec_adaptable_documentacion_tecnica.pdf`](docs/Codec_adaptable_documentacion_tecnica.pdf) — documentación técnica completa: fórmulas, formato del archivo `.tic`, Huffman canónico, límites del estimador de entropía.

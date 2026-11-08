@@ -1,2 +1,7 @@
 -r requirements.txt
 pytest>=8
+# segunda entrega (src/comparar_tecnicas.py, tasa_distorsion.py, acantilado_6g.py): opcionales en uso,
+# instaladas aquí para que las pruebas cubran FLAC, PNG/WebP y zstd
+soundfile>=0.12
+Pillow>=10
+zstandard>=0.22

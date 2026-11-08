@@ -22,7 +22,7 @@ def datos():
 
 @pytest.fixture(scope="module")
 def bmp():
-    from PIL import Image
+    Image = pytest.importorskip("PIL.Image")
     # Degradado horizontal de 64 × 48 píxeles RGB.
     x = np.tile(np.arange(64, dtype=np.uint8), (48, 1)).reshape(48, 64, 1).repeat(3, 2)
     out = io.BytesIO()
@@ -32,11 +32,14 @@ def bmp():
 
 @pytest.fixture(scope="module")
 def wav():
-    import soundfile as sf
+    # Con la biblioteca estándar (wave): la prueba no necesita soundfile; FLAC solo se prueba si está.
+    import wave
     t = np.arange(8000) / 8000
-    s = (8000 * np.sin(2 * np.pi * 440 * t)).astype(np.int16)
+    s = (8000 * np.sin(2 * np.pi * 440 * t)).astype("<i2")
     out = io.BytesIO()
-    sf.write(out, s, 8000, format="WAV", subtype="PCM_16")
+    with wave.open(out, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(8000)
+        w.writeframes(s.tobytes())
     return out.getvalue()
 
 

@@ -59,6 +59,14 @@ try:
     import brotli as _brotli
 except ImportError:
     _brotli = None
+try:
+    import soundfile as _soundfile  # FLAC
+except ImportError:
+    _soundfile = None
+try:
+    from PIL import Image as _pil  # PNG y WebP
+except ImportError:
+    _pil = None
 
 DIR_DATOS = Path(__file__).resolve().parent.parent / "data"
 MUESTRA_MAX = 16 * 1024 * 1024  # 16 MB
@@ -204,13 +212,15 @@ def tecnicas() -> list[Tecnica]:
     if _brotli is not None:
         t.append(Tecnica("brotli-11", "general", "Brotli nivel 11 (el de HTTP)",
                          lambda d: _brotli.compress(d, quality=11), _brotli.decompress))
-    t += [Tecnica("flac", "especializada", "FLAC: predicción lineal de muestras + Rice", _flac_comprimir,
-                  _flac_descomprimir, ("audio_wav",)),
-          Tecnica("png", "especializada", "PNG: filtro por fila + DEFLATE", *_imagen("PNG", optimize=True),
+    if _soundfile is not None:
+        t.append(Tecnica("flac", "especializada", "FLAC: predicción lineal de muestras + Rice", _flac_comprimir,
+                         _flac_descomprimir, ("audio_wav",)))
+    if _pil is not None:
+        t += [Tecnica("png", "especializada", "PNG: filtro por fila + DEFLATE", *_imagen("PNG", optimize=True),
                   ("imagen_bmp",)),
           Tecnica("webp-sin-perdida", "especializada", "WebP en modo sin pérdida (predicción + LZ77 + códigos de color)",
-                  *_imagen("WEBP", lossless=True, quality=100, method=4), ("imagen_bmp",)),
-          Tecnica("tic", "referencia", "Códec TIC del laboratorio (Huffman o bitstrip con k adaptable)",
+                  *_imagen("WEBP", lossless=True, quality=100, method=4), ("imagen_bmp",))]
+    t += [Tecnica("tic", "referencia", "Códec TIC del laboratorio (Huffman o bitstrip con k adaptable)",
                   TIC.comprimir, TIC.descomprimir)]
     return t
 

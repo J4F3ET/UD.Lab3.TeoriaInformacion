@@ -282,8 +282,62 @@ Con `--perdida 3` y k = 8 sobre una fuente sintética: razón 3,44:1, PSNR 38,4 
 
 Esta es la parte de "IA en el proceso". Es una **simulación sobre archivos**: no se midió latencia ni se probó en una red.
 
-### Por qué un bandido y no un clasificador entrenado
-Un clasificador entrenado por lotes (por ejemplo un árbol de decisión) solo reconoce los tipos de fuente que vio al entrenarse; ante un caso nuevo no tiene respuesta, y en una red habría que reentrenarlo cada vez que cambie el tráfico. El bandido aprende en línea con la razón de compresión que el códec ya mide, sin etiquetas y sin reentrenamiento, y se readapta cuando la fuente cambia por dos mecanismos: el descuento (lo viejo pesa cada vez menos) y el barrido de reinicio (un cambio fuerte de la recompensa hace medir el bloque con los 9 k). Esa readaptación es parcial y lenta en varios tramos, ver "Límites declarados".
+### Cómo se llegó a este modelo
+La elección se hizo en cuatro pasos. Cada uno descartó la opción anterior por una razón concreta.
+
+**1. El problema.** El barrido (`CodecTIC.barrido`) ya da el k exacto: estima la razón con cada uno de los 9 valores y toma el mejor. El costo es medir el archivo 9 veces. La pregunta para la IA fue: ¿se puede elegir un k bueno sin barrer todo? En la literatura esto se llama *selección de algoritmo o de parámetros* de compresión, y la receta habitual es calcular estadísticas baratas del archivo, etiquetarlo con la opción que ganó y entrenar un modelo sobre esa tabla [1, 2].
+
+**2. Primera propuesta: Random Forest (con un árbol de decisión para explicarlo).** Encajaba bien con un problema de archivos en disco:
+
+- El mejor k cambia por saltos, no suavemente: el propio `Informacion.clasificar` decide con umbrales (N/U < 2, H/k > 0,97). Un árbol aprende justamente funciones por umbrales.
+- Cada corte del árbol se elige por ganancia de información, $H(Y) - H(Y \mid \text{corte})$, que es la información mutua entre el k óptimo y la pregunta del nodo: la misma teoría del curso.
+- Promediar B árboles poco correlacionados reduce la varianza ($\rho\sigma^2 + (1-\rho)\sigma^2/B$), que es lo que domina el error con pocos datos (habría cientos de archivos, no millones).
+- Un árbol solo usa el orden de los valores, así que no hay que normalizar métricas de escalas muy distintas (H/k entre 0 y 1; KL hasta decenas de miles).
+- La etiqueta sale gratis del barrido. Las alternativas revisadas fueron gradient boosting (puede ganar por poco, pero es más difícil de explicar), k-vecinos (MLcomp lo usa para elegir compresor [1]) y redes neuronales (descartadas por falta de datos).
+
+**3. Por qué se descartó.** Sus límites principales:
+
+- No extrapola: ante un tipo de fuente que no vio, responde con el caso más parecido y no avisa.
+- Con datos mayormente sintéticos puede aprender el generador y no los archivos.
+- Solo hay 7 archivos reales.
+- Un clasificador cuenta igual confundir k = 1024 con 2048 (cuesta poco) que con 8 (lo pierde todo).
+
+El límite que decidió fue otro: un modelo entrenado por lotes supone que los datos futuros se parecen a los de entrenamiento. En una red tipo 5G/6G el tráfico cambia con la hora, la aplicación y el usuario (*deriva de concepto*), así que habría que reentrenarlo constantemente. El problema no era usar aprendizaje, sino entrenar una vez y congelar.
+
+**4. Dos candidatos que aprenden en línea, comparados:**
+
+| | Adaptive Random Forest (ARF) [3] | Bandido con descuento [4] |
+|---|---|---|
+| Qué es | Random Forest modificado para flujos: árboles de Hoeffding que crecen ejemplo a ejemplo, un detector de deriva (ADWIN) por árbol y reemplazo en caliente del árbol afectado | Regla UCB: recompensa media de cada k más un bono de incertidumbre; lo viejo pesa cada vez menos |
+| Qué necesita para corregirse | El **mejor** k de cada bloque, o sea, un barrido por bloque | Solo la razón del k que usó, que el códec ya mide |
+| Qué optimiza | Aciertos de clasificación | Compresión acumulada (minimiza el arrepentimiento) |
+| Garantía ante cambios | Empírica | Garivier y Moulines dan una cota de arrepentimiento para cambios bruscos [4] |
+| Dependencias | Librería `river` | Solo NumPy |
+
+El ARF resuelve el reentrenamiento, pero para aprender necesita saber cuál era el mejor k en cada bloque. Eso obliga a correr el barrido en cada bloque, que es justo lo que se quería evitar. El bandido aprende solo de cómo le fue con el k que eligió. Además, optimiza directamente la medida que importa: perder poco frente al óptimo, donde un error barato pesa poco y uno caro pesa mucho.
+
+**Elección final: el bandido mínimo.** Es un UCB con descuento por cada categoría de `Informacion.clasificar`. Se prefirió a D-LinUCB [5], que usa las métricas de ANTES como contexto numérico, porque se implementa solo con NumPy y se explica en una diapositiva. D-LinUCB generaliza mejor entre bloques parecidos, pero necesita álgebra de matrices y es más difícil de explicar. Del ARF se tomó la idea del detector de deriva, en forma de barrido de reinicio cuando la recompensa cambia de golpe (ver "Reinicio por cambio").
+
+**Resumen por escenario:**
+
+| Escenario | Enfoque adecuado |
+|---|---|
+| Archivos en disco (lo que hace el códec) | Barrido, o un Random Forest para acelerarlo |
+| Flujo continuo que cambia de tipo (marco 5G/6G) | Bandido con descuento, con el barrido como respaldo |
+
+El bandido aprende en línea con la razón de compresión que el códec ya mide, sin etiquetas y sin reentrenamiento. Se readapta cuando la fuente cambia por dos mecanismos:
+
+- **Descuento:** lo viejo pesa cada vez menos.
+- **Barrido de reinicio:** un cambio fuerte de la recompensa hace medir el bloque con los 9 k.
+
+Esa readaptación es parcial y lenta en varios tramos; ver "Límites declarados".
+
+Referencias:
+1. Burtchell y Burtscher, *MLcomp*, Data Compression Conference 2024. https://userweb.cs.txstate.edu/~mb92/papers/dcc24b.pdf
+2. *Challenges and Solutions in Selecting Optimal Lossless Data Compression Algorithms*. https://arxiv.org/pdf/2509.25219
+3. Gomes y otros, *Adaptive random forests for evolving data stream classification*, Machine Learning, 2017. https://researchcommons.waikato.ac.nz/handle/10289/11231
+4. Garivier y Moulines, *On Upper-Confidence Bound Policies for Switching Bandit Problems*, ALT 2011. https://www.arxiv.org/abs/0805.3415
+5. Russac, Vernade y Cappé, *Weighted Linear Bandits for Non-Stationary Environments* (D-LinUCB), NeurIPS 2019. https://arxiv.org/abs/1909.09146
 
 ### Planteamiento
 El flujo se parte en bloques de tamaño fijo (256 KB por defecto). Para cada bloque:

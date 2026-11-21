@@ -8,6 +8,14 @@
 #   docker compose -f deploy/compose.yaml -p tic-codec up -d --build
 name: tic-codec
 
+# Logs acotados: sin esto el log json de Docker crece sin límite y puede llenar el disco del LXC,
+# que es una forma silenciosa de tumbar todo (Docker, la app y el runner).
+x-logs: &logs
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   app:
     build:
@@ -22,6 +30,8 @@ services:
     volumes:
       - datos:/app/data
     mem_limit: ${TIC_MEM:-3g}
+    init: true
+    logging: *logs
     restart: unless-stopped
 
   # La interfaz guarda cada fuente y sus .tic en data/gui/<id>/ y nunca los borra.
@@ -38,6 +48,7 @@ services:
           find /app/data/gui -mindepth 1 -maxdepth 1 -type d -mmin +${TIC_TTL_MIN:-120} -exec rm -rf {} +
           sleep 600
         done
+    logging: *logs
     restart: unless-stopped
 
 volumes:

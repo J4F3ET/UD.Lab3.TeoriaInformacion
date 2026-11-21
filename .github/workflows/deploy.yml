@@ -13,6 +13,7 @@ jobs:
   pruebas:
     name: Pruebas
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -31,6 +32,9 @@ jobs:
     # Nunca en pull requests: el runner vive en el servidor de casa.
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: [self-hosted, linux, tic-codec]
+    # Límite de ejecución. Si el runner está apagado, el job queda en cola (GitHub lo cancela a las 24 h):
+    # el monitor (monitor.yml) es el que avisa de que el servicio está caído.
+    timeout-minutes: 30
     environment:
       name: produccion
       url: ${{ vars.URL_PUBLICA }}
@@ -39,25 +43,69 @@ jobs:
       cancel-in-progress: false
     env:
       COMPOSE: docker compose -f deploy/compose.yaml -p tic-codec
+      IMAGEN: tic-codec-gui
     steps:
       - uses: actions/checkout@v4
 
-      - name: Construir y levantar
-        run: $COMPOSE up -d --build --remove-orphans
-
-      - name: Esperar a que la app esté sana
+      # 1. Construir SIN tocar lo que está corriendo. Si Docker Hub falla (ya pasó: 401 al pedir
+      #    python:3.12-slim) se reintenta; si no se puede, la versión anterior sigue sirviendo.
+      - name: Construir la imagen (con reintentos)
         run: |
-          for i in $(seq 1 30); do
-            estado=$(docker inspect -f '{{.State.Health.Status}}' "$($COMPOSE ps -q app)")
+          for i in 1 2 3; do
+            $COMPOSE build app && exit 0
+            echo "::warning::construcción fallida (intento $i); reintento en $((i * 30)) s"
+            sleep $((i * 30))
+          done
+          echo "::error title=No se pudo construir::La app anterior sigue corriendo sin cambios."
+          exit 1
+
+      # 2. Guardar la imagen que está en producción para poder volver a ella.
+      - name: Respaldar la versión en producción
+        run: |
+          actual=$(docker inspect -f '{{.Image}}' "$($COMPOSE ps -q app 2>/dev/null)" 2>/dev/null || true)
+          if [ -n "$actual" ]; then
+            docker tag "$actual" "$IMAGEN:anterior"
+            echo "respaldada como $IMAGEN:anterior ($actual)"
+          else
+            echo "no había app corriendo: no hay a qué volver"
+          fi
+
+      - name: Levantar la nueva versión
+        run: $COMPOSE up -d --no-build --remove-orphans
+
+      # 3. Sana = healthcheck "healthy" Y la página responde de verdad.
+      - name: Comprobar que la app está sana
+        id: salud
+        run: |
+          for i in $(seq 1 40); do
+            estado=$(docker inspect -f '{{.State.Health.Status}}' "$($COMPOSE ps -q app)" 2>/dev/null || echo ausente)
             echo "intento $i: $estado"
-            [ "$estado" = healthy ] && exit 0
+            if [ "$estado" = healthy ] && curl -fsS -o /dev/null --max-time 10 "http://127.0.0.1:${TIC_PUERTO:-5000}/"; then
+              echo "✔ la app responde"; exit 0
+            fi
             sleep 3
           done
           $COMPOSE logs --tail 100 app
           exit 1
 
+      # 4. Si la nueva versión no quedó sana, volver a la anterior para no dejar el servicio caído.
+      - name: Volver a la versión anterior
+        if: failure() && steps.salud.outcome == 'failure'
+        run: |
+          if docker image inspect "$IMAGEN:anterior" >/dev/null 2>&1; then
+            docker tag "$IMAGEN:anterior" "$IMAGEN:latest"
+            $COMPOSE up -d --no-build --remove-orphans
+            sleep 20
+            curl -fsS -o /dev/null --max-time 10 "http://127.0.0.1:${TIC_PUERTO:-5000}/" \
+              && echo "::warning title=Rollback::La versión nueva no quedó sana; se volvió a la anterior y responde." \
+              || echo "::error title=Rollback fallido::Tampoco responde la versión anterior; revisa el LXC."
+          else
+            echo "::error title=Sin respaldo::No había versión anterior a la que volver."
+          fi
+
       - name: Estado de Tailscale / Funnel
         # Tailscale está instalado en el LXC (no en un contenedor); ver deploy/README.md.
+        if: always()
         run: |
           if ! command -v tailscale >/dev/null; then
             echo "::warning title=Sin Tailscale::Tailscale no está instalado en el LXC; la app solo responde en 127.0.0.1:5000."
@@ -65,9 +113,10 @@ jobs:
           fi
           tailscale funnel status || true
           if ! tailscale funnel status 2>/dev/null | grep -q "Funnel on"; then
-            echo "::warning title=Funnel apagado::En el LXC, como root: tailscale funnel --bg 5000"
+            echo "::warning title=Funnel apagado::El vigía lo reactiva solo; a mano, como root en el LXC: tailscale funnel --bg 5000"
           fi
 
       - name: Limpiar imágenes viejas
+        # Solo las colgantes: la etiqueta :anterior se conserva para el próximo rollback.
         if: always()
-        run: docker image prune -f
+        run: docker image prune -f && docker builder prune -f --filter until=168h

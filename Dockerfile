@@ -24,7 +24,7 @@ VOLUME ["/app/data"]
 EXPOSE 5000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/', timeout=4)"
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/salud', timeout=4)"
 
 # Solo es alcanzable desde 127.0.0.1 del LXC (Tailscale Funnel), por eso se confía en X-Forwarded-*.
 # Un solo proceso (el códec usa mucha RAM) con hilos para atender varias peticiones;

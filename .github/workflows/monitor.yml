@@ -1,0 +1,60 @@
+name: Monitor del servicio
+
+# Revisa desde fuera (runner de GitHub, no el del LXC) que la URL pública responda.
+# Si el LXC, Tailscale o la app se caen, el job de despliegue no puede avisarlo (su runner
+# vive en el mismo LXC); este sí: abre un issue "Servicio caído" y lo cierra cuando vuelve.
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: monitor
+  cancel-in-progress: true
+
+jobs:
+  revisar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: vars.URL_PUBLICA != ''
+    env:
+      URL: ${{ vars.URL_PUBLICA }}
+      GH_TOKEN: ${{ github.token }}
+      TITULO: "Servicio caído: la URL pública no responde"
+    steps:
+      - name: Probar la URL pública
+        id: prueba
+        run: |
+          for i in 1 2 3; do
+            codigo=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "$URL/" || echo 000)
+            echo "intento $i: HTTP $codigo"
+            if [ "$codigo" = 200 ]; then echo "arriba=1" >> "$GITHUB_OUTPUT"; exit 0; fi
+            sleep 20
+          done
+          echo "arriba=0" >> "$GITHUB_OUTPUT"
+          echo "codigo=$codigo" >> "$GITHUB_OUTPUT"
+
+      - name: Abrir o actualizar el issue de caída
+        if: steps.prueba.outputs.arriba == '0'
+        run: |
+          n=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "\"$TITULO\" in:title" --json number -q '.[0].number')
+          cuerpo="$(date -u +'%Y-%m-%d %H:%M UTC'): $URL respondió HTTP ${{ steps.prueba.outputs.codigo }} (000 = sin conexión).
+
+          Pasos de recuperación: deploy/README.md, sección «Si el servicio está caído»."
+          if [ -n "$n" ]; then
+            gh issue comment "$n" -R "$GITHUB_REPOSITORY" --body "$cuerpo"
+          else
+            gh issue create -R "$GITHUB_REPOSITORY" --title "$TITULO" --body "$cuerpo"
+          fi
+          exit 1
+
+      - name: Cerrar el issue si el servicio volvió
+        if: steps.prueba.outputs.arriba == '1'
+        run: |
+          n=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "\"$TITULO\" in:title" --json number -q '.[0].number')
+          [ -z "$n" ] || gh issue close "$n" -R "$GITHUB_REPOSITORY" \
+            --comment "$(date -u +'%Y-%m-%d %H:%M UTC'): el servicio volvió a responder (HTTP 200)."

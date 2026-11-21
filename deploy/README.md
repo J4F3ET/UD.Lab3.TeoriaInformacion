@@ -143,6 +143,18 @@ bash deploy/proxmox/arranque-automatico.sh 111
    tras un reinicio el runner llegó a tomar un job sin DNS y falló con
    `Could not resolve host: github.com`. También se reinicia solo si se cae (`Restart=always`).
 
+5. Instala el **vigía del LXC** (`tic-codec-vigia.timer`, cada 2 min). Si Docker, la app,
+   `tailscaled`, el Funnel o el runner están caídos, los vuelve a levantar. Si el disco pasa del
+   90 %, borra imágenes y caché de construcción de Docker. Cada acción queda registrada en
+   `journalctl -u tic-codec-vigia`.
+6. Instala en el **host** el vigía del LXC (`vigia-lxc@111.timer`, cada 5 min): si el LXC está
+   apagado, lo enciende. `onboot=1` solo actúa al arrancar Proxmox; el vigía cubre el caso en que
+   el LXC se apaga o no arranca después.
+
+Para apagar algo a propósito sin que los vigías lo vuelvan a levantar:
+`touch /root/vigia-lxc-111.pausa` en el host, o `touch /root/vigia.pausa` dentro del LXC.
+Borra el archivo para reactivarlos.
+
 No reinicia el runner mientras pueda estar corriendo un job: el nuevo orden se aplica en el próximo
 arranque. Para comprobarlo de una vez, `PROBAR=1 bash deploy/proxmox/arranque-automatico.sh 111`
 reinicia el LXC y verifica que la app responda. Ver el estado en cualquier momento:
@@ -164,9 +176,20 @@ pct exec 111 -- bash /root/arranque-automatico.sh --estado
 Cualquier push a `main` (o **Actions → CI/CD → Run workflow**) hace:
 
 1. **pruebas** (`ubuntu-latest`): `pytest` de la interfaz (`tests/test_app.py`: subir → codificar → decodificar) y `docker build` para confirmar que la imagen construye.
-2. **desplegar** (runner del LXC): `docker compose up -d --build`, espera a que el healthcheck de
-   la app quede `healthy`, muestra `tailscale funnel status` (del Tailscale del LXC) y borra
-   imágenes viejas. Si el Funnel está apagado, el job lo avisa en amarillo.
+2. **desplegar** (runner del LXC, máximo 30 min):
+   1. Construye la imagen **sin tocar lo que está corriendo**, con 3 intentos. Ya falló una vez
+      por un `401` de Docker Hub. Si no logra construir, la versión anterior sigue sirviendo.
+   2. Etiqueta la imagen en producción como `tic-codec-gui:anterior` y levanta la nueva.
+   3. Espera a que el healthcheck quede `healthy` **y** a que `http://127.0.0.1:5000/` responda.
+   4. Si la nueva versión no queda sana, **vuelve sola a la anterior** (rollback) y el job falla
+      con el aviso.
+   5. Muestra `tailscale funnel status` y borra imágenes colgantes y caché de construcción de más
+      de 7 días.
+
+**Monitor externo** (`.github/workflows/monitor.yml`): cada 30 min un runner de GitHub (no el del
+LXC) prueba `URL_PUBLICA`. Si no responde 3 veces seguidas, abre el issue «Servicio caído…»
+(GitHub te avisa por correo) y lo cierra cuando el servicio vuelve. Es la única alarma que funciona
+aunque el LXC entero esté apagado. Necesita la variable `URL_PUBLICA` del paso 4.
 
 En el log de "Estado de Tailscale / Funnel" debe aparecer
 `https://tic-codec.<tailnet>.ts.net (Funnel on)`.
@@ -198,6 +221,36 @@ La interfaz guarda todo lo que se sube o genera en el volumen `tic-codec_datos`;
 `limpieza` borra cada 10 min las carpetas con más de `TIC_TTL_MIN` minutos para que el disco
 del LXC no se llene. Si subes `TIC_MAX_MB`, sube también `TIC_MEM` (con k grandes el códec usa
 varias veces el tamaño del archivo en RAM) y el disco del LXC (`pct resize <CTID> rootfs +10G`).
+
+## Si el servicio está caído
+
+**Mínimo garantizado:** la app, la limpieza, Tailscale/Funnel y el runner deben estar arriba. Lo
+que no forma parte del despliegue (por ejemplo Grafana u otros paneles de monitoreo) puede faltar
+sin que eso cuente como caída.
+
+En el host de Proxmox, como root, en este orden:
+
+```bash
+pct status 111
+```
+Si dice `stopped`, enciéndelo y mira por qué no arrancaba:
+```bash
+pct start 111 --debug
+```
+Con el LXC arriba, reinstala el arranque y los vigías (es re-ejecutable) y comprueba el estado:
+```bash
+bash deploy/proxmox/arranque-automatico.sh 111
+```
+```bash
+pct exec 111 -- bash /root/arranque-automatico.sh --estado
+```
+Si Tailscale aparece en `NeedsLogin`, la clave del nodo expiró: dentro del LXC corre
+`tailscale up`, abre el enlace que imprime y, en la consola de Tailscale, marca **Disable key
+expiry** en `tic-codec` para que no vuelva a pasar.
+
+Si el runner estaba apagado, el último push a `main` quedó sin desplegar (GitHub cancela el job a
+las 24 h). Vuelve a lanzarlo: **Actions → CI/CD → Run workflow**, o
+`gh workflow run deploy.yml --ref main`.
 
 ## Probar en local sin Proxmox
 

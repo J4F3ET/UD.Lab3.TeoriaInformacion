@@ -3,7 +3,21 @@ name: CI/CD
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "reports/**"
+      - "diagrams/**"
+      - "plans/**"
+      - "examples/**"
   pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "reports/**"
+      - "diagrams/**"
+      - "plans/**"
+      - "examples/**"
   workflow_dispatch:
 
 permissions:
@@ -23,85 +37,135 @@ jobs:
           cache-dependency-path: requirements*.txt
       - run: pip install -r requirements-dev.txt
       - run: python -m pytest -q tests
+      # En pull requests solo se comprueba que la imagen construye (sin publicarla).
+      # En push/dispatch esa comprobación la hace el job `imagen`.
       - name: La imagen construye
+        if: github.event_name == 'pull_request'
         run: docker build -t tic-codec-web:ci .
+
+  imagen:
+    name: Construir y publicar imagen
+    needs: pruebas
+    # Nunca en pull requests: no se publica nada desde ellas.
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      imagen: ${{ steps.datos.outputs.imagen }}
+      huella: ${{ steps.datos.outputs.huella }}
+    env:
+      REPO_IMAGEN: ghcr.io/j4f3et/ud.lab3.teoriainformacion
+    steps:
+      # Basta un commit: la huella usa `git ls-tree HEAD`, no el historial.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # La huella se calcula con las entradas de la línea `app` de deploy/servicios.conf (no se
+      # repiten aquí), así este workflow y deploy/desplegar.sh nunca divergen.
+      - name: Calcular la huella de la app
+        id: datos
+        run: |
+          set -euo pipefail
+          entradas=$(awk -F'|' '$1 ~ /^[[:space:]]*app[[:space:]]*$/ {print $3; exit}' deploy/servicios.conf)
+          [ -n "${entradas// /}" ] || { echo "::error::No se encontraron las entradas de 'app' en deploy/servicios.conf"; exit 1; }
+          # shellcheck disable=SC2086
+          huella=$(bash deploy/huella.sh $entradas)
+          echo "entradas de la app: $entradas"
+          echo "huella: $huella"
+          echo "huella=$huella" >> "$GITHUB_OUTPUT"
+          echo "imagen=$REPO_IMAGEN:app-$huella" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Si la etiqueta app-<huella> ya existe en ghcr.io, el contenido no cambió: no se reconstruye.
+      - name: ¿Ya existe esta imagen?
+        id: existe
+        env:
+          IMAGEN: ${{ steps.datos.outputs.imagen }}
+        run: |
+          if docker manifest inspect "$IMAGEN" >/dev/null 2>&1; then
+            echo "existe=true" >> "$GITHUB_OUTPUT"
+            echo "La imagen $IMAGEN ya existe en ghcr.io: se reutiliza y se salta el build."
+          else
+            echo "existe=false" >> "$GITHUB_OUTPUT"
+            echo "La imagen $IMAGEN no existe todavía: se construye."
+          fi
+
+      - name: Preparar Buildx
+        if: steps.existe.outputs.existe != 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Construir y publicar
+        if: steps.existe.outputs.existe != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.datos.outputs.imagen }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Resumen
+        env:
+          IMAGEN: ${{ steps.datos.outputs.imagen }}
+          HUELLA: ${{ steps.datos.outputs.huella }}
+          EXISTE: ${{ steps.existe.outputs.existe }}
+        run: |
+          {
+            echo "### Imagen de la app"
+            echo ""
+            if [ "$EXISTE" = true ]; then
+              echo "- Estado: **reutilizada** (el contenido no cambió; no se construyó)"
+            else
+              echo "- Estado: **construida y publicada**"
+            fi
+            echo "- Imagen: \`$IMAGEN\`"
+            echo "- Huella: \`$HUELLA\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   desplegar:
     name: Desplegar en Proxmox
-    needs: pruebas
+    needs: imagen
     # Nunca en pull requests: el runner vive en el servidor de casa.
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: [self-hosted, linux, tic-codec]
-    # Límite de ejecución. Si el runner está apagado, el job queda en cola (GitHub lo cancela a las 24 h):
-    # el monitor (monitor.yml) es el que avisa de que el servicio está caído.
-    timeout-minutes: 30
+    # Límite de ejecución. Cubre la espera sin prisa del slot nuevo (10 min) más el drenaje del
+    # anterior (15 min), con margen. Si el runner está apagado, el job queda en cola (GitHub lo
+    # cancela a las 24 h): el monitor (monitor.yml) es el que avisa de que el servicio está caído.
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: read
     environment:
       name: produccion
       url: ${{ vars.URL_PUBLICA }}
     concurrency:
       group: despliegue-produccion
       cancel-in-progress: false
-    env:
-      COMPOSE: docker compose -f deploy/compose.yaml -p tic-codec
-      IMAGEN: tic-codec-gui
     steps:
       - uses: actions/checkout@v4
 
-      # 1. Construir SIN tocar lo que está corriendo. Si Docker Hub falla (ya pasó: 401 al pedir
-      #    python:3.12-slim) se reintenta; si no se puede, la versión anterior sigue sirviendo.
-      - name: Construir la imagen (con reintentos)
-        run: |
-          for i in 1 2 3; do
-            $COMPOSE build app && exit 0
-            echo "::warning::construcción fallida (intento $i); reintento en $((i * 30)) s"
-            sleep $((i * 30))
-          done
-          echo "::error title=No se pudo construir::La app anterior sigue corriendo sin cambios."
-          exit 1
+      # Sin dependencias en el runner: se pasa el token por stdin, no por argumentos.
+      - name: Entrar en ghcr.io
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
+        run: echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
 
-      # 2. Guardar la imagen que está en producción para poder volver a ella.
-      - name: Respaldar la versión en producción
-        run: |
-          actual=$(docker inspect -f '{{.Image}}' "$($COMPOSE ps -q app 2>/dev/null)" 2>/dev/null || true)
-          if [ -n "$actual" ]; then
-            docker tag "$actual" "$IMAGEN:anterior"
-            echo "respaldada como $IMAGEN:anterior ($actual)"
-          else
-            echo "no había app corriendo: no hay a qué volver"
-          fi
-
-      - name: Levantar la nueva versión
-        run: $COMPOSE up -d --no-build --remove-orphans
-
-      # 3. Sana = healthcheck "healthy" Y la página responde de verdad.
-      - name: Comprobar que la app está sana
-        id: salud
-        run: |
-          for i in $(seq 1 40); do
-            estado=$(docker inspect -f '{{.State.Health.Status}}' "$($COMPOSE ps -q app)" 2>/dev/null || echo ausente)
-            echo "intento $i: $estado"
-            if [ "$estado" = healthy ] && curl -fsS -o /dev/null --max-time 10 "http://127.0.0.1:${TIC_PUERTO:-5000}/"; then
-              echo "✔ la app responde"; exit 0
-            fi
-            sleep 3
-          done
-          $COMPOSE logs --tail 100 app
-          exit 1
-
-      # 4. Si la nueva versión no quedó sana, volver a la anterior para no dejar el servicio caído.
-      - name: Volver a la versión anterior
-        if: failure() && steps.salud.outcome == 'failure'
-        run: |
-          if docker image inspect "$IMAGEN:anterior" >/dev/null 2>&1; then
-            docker tag "$IMAGEN:anterior" "$IMAGEN:latest"
-            $COMPOSE up -d --no-build --remove-orphans
-            sleep 20
-            curl -fsS -o /dev/null --max-time 10 "http://127.0.0.1:${TIC_PUERTO:-5000}/" \
-              && echo "::warning title=Rollback::La versión nueva no quedó sana; se volvió a la anterior y responde." \
-              || echo "::error title=Rollback fallido::Tampoco responde la versión anterior; revisa el LXC."
-          else
-            echo "::error title=Sin respaldo::No había versión anterior a la que volver."
-          fi
+      # Despliegue azul/verde (ver deploy/desplegar.sh): levanta el slot nuevo, espera a que esté
+      # sano, cambia el proxy y drena el anterior. Si falla, el slot en servicio no se toca.
+      - name: Desplegar (azul/verde)
+        env:
+          IMAGEN: ${{ needs.imagen.outputs.imagen }}
+        run: bash deploy/desplegar.sh "$IMAGEN"
 
       - name: Estado de Tailscale / Funnel
         # Tailscale está instalado en el LXC (no en un contenedor); ver deploy/README.md.
@@ -116,7 +180,31 @@ jobs:
             echo "::warning title=Funnel apagado::El vigía lo reactiva solo; a mano, como root en el LXC: tailscale funnel --bg 5000"
           fi
 
-      - name: Limpiar imágenes viejas
-        # Solo las colgantes: la etiqueta :anterior se conserva para el próximo rollback.
+      # Este workflow NO guarda la huella: la guarda arranque-automatico.sh al terminar.
+      - name: Avisar si cambiaron los scripts del LXC
         if: always()
-        run: docker image prune -f && docker builder prune -f --filter until=168h
+        run: |
+          actual=$(bash deploy/huella.sh deploy/proxmox 2>/dev/null || true)
+          guardada=$(cat /var/lib/tic-codec/huellas/lxc-scripts 2>/dev/null || true)
+          if [ -z "$guardada" ] || [ "$actual" != "$guardada" ]; then
+            echo "::notice title=Scripts del LXC::Los scripts de deploy/proxmox cambiaron (o nunca se instalaron): corre arranque-automatico.sh como root en el LXC."
+          fi
+          exit 0
+
+      # Se conservan las dos últimas versiones: las imágenes de los dos slots (en uso por algún
+      # contenedor, parado o no). Nada de esto puede hacer fallar el job.
+      - name: Limpiar imágenes viejas
+        if: always()
+        run: |
+          docker image prune -f || true
+          repo=ghcr.io/j4f3et/ud.lab3.teoriainformacion
+          en_uso=$(docker ps -a --format '{{.Image}}' 2>/dev/null || true)
+          docker image ls "$repo" --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | while read -r img; do
+            [ -n "$img" ] || continue
+            if ! printf '%s\n' "$en_uso" | grep -qxF "$img"; then
+              echo "borrando imagen sin uso: $img"
+              docker image rm "$img" || true
+            fi
+          done || true
+          docker builder prune -f --filter until=168h || true
+          exit 0

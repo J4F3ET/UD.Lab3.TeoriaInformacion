@@ -1,42 +1,84 @@
-# Despliegue en el LXC: la interfaz gráfica (src/app.py) y su limpieza de datos.
+# Despliegue en el LXC: la interfaz gráfica (src/app.py) en azul/verde sin caída, su proxy y la
+# limpieza de datos.
 #
 # Tailscale NO va en un contenedor: está instalado en el propio LXC y publica la app con
 #   tailscale funnel --bg 5000   →   https://tic-codec.<tailnet>.ts.net  (puerto 443)
-# La app solo escucha en 127.0.0.1:5000 del LXC, así que no queda expuesta en la red local.
+# El proxy nginx solo escucha en 127.0.0.1:5000 del LXC, así que no queda expuesto en la red local.
+#
+# Cómo funciona: el proxy reenvía al slot activo (app-azul o app-verde). El script de despliegue
+# levanta el slot inactivo con la imagen nueva, comprueba su salud, reescribe el upstream del proxy
+# y recarga nginx. Las imágenes vienen de ghcr.io (etiqueta app-<huella>); no se compila en el LXC.
 #
 # Uso (lo hace el workflow de GitHub Actions en el runner del LXC):
-#   docker compose -f deploy/compose.yaml -p tic-codec up -d --build
+#   bash deploy/desplegar.sh <imagen>
 name: tic-codec
 
+# Base común de todos los servicios.
 # Logs acotados: sin esto el log json de Docker crece sin límite y puede llenar el disco del LXC,
 # que es una forma silenciosa de tumbar todo (Docker, la app y el runner).
-x-logs: &logs
-  driver: json-file
-  options:
-    max-size: "10m"
-    max-file: "3"
+x-base: &base
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+  restart: unless-stopped
+  init: true
+
+# Lo común a los dos slots de la app. Las dos copias comparten el volumen `datos` porque la app
+# no guarda estado en memoria. El healthcheck viene del Dockerfile (HEALTHCHECK usa /salud).
+# RAM: con dos copias a la vez, 2g por slot. Si se sube el LXC a 6 GB (pct set 111 --memory 6144)
+# se puede dar 3g por slot con TIC_MEM=3g.
+x-app: &app
+  <<: *base
+  environment:
+    # Límite de subida en el despliegue público (en local el defecto es 2 GB).
+    TIC_MAX_MB: ${TIC_MAX_MB:-256}
+  volumes:
+    - datos:/app/data
+  # Margen para que terminen las conversiones largas en curso antes de parar el slot viejo.
+  stop_grace_period: 15m
+  mem_limit: ${TIC_MEM:-2g}
 
 services:
-  app:
-    build:
-      context: ..
-      dockerfile: Dockerfile
-    image: tic-codec-gui:latest
+  # Punto de entrada único: reenvía al slot activo según upstream.conf, que escribe el script de
+  # despliegue en ${TIC_ESTADO}/proxy (se monta el directorio, no el archivo, para que el reload
+  # vea los reemplazos).
+  proxy:
+    <<: *base
+    image: nginx:1.27-alpine
     ports:
-      - "127.0.0.1:${TIC_PUERTO:-5000}:5000"
-    environment:
-      # Límite de subida en el despliegue público (en local el defecto es 2 GB).
-      TIC_MAX_MB: ${TIC_MAX_MB:-256}
+      - "127.0.0.1:${TIC_PUERTO:-5000}:80"
     volumes:
-      - datos:/app/data
-    mem_limit: ${TIC_MEM:-3g}
-    init: true
-    logging: *logs
-    restart: unless-stopped
+      - ./nginx:/etc/nginx/conf.d:ro
+      - ${TIC_ESTADO:-/var/lib/tic-codec}/proxy:/etc/nginx/upstream:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/nginx-salud"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    mem_limit: 128m
+
+  # Slots azul/verde. Llevan `profiles: ["slots"]`: un `compose up -d` sin nombres NO los levanta;
+  # solo arrancan cuando se nombran (p. ej. `compose up -d app-azul`), que es lo que hace el script.
+  app-azul:
+    <<: *app
+    image: ${TIC_IMAGEN_AZUL:-tic-codec-gui:prueba}
+    ports:
+      - "127.0.0.1:5001:5000"
+    profiles: ["slots"]
+
+  app-verde:
+    <<: *app
+    image: ${TIC_IMAGEN_VERDE:-tic-codec-gui:prueba}
+    ports:
+      - "127.0.0.1:5002:5000"
+    profiles: ["slots"]
 
   # La interfaz guarda cada fuente y sus .tic en data/gui/<id>/ y nunca los borra.
   # Expuesta a internet eso llenaría el disco: se borran las carpetas viejas cada 10 min.
   limpieza:
+    <<: *base
     image: busybox:stable
     volumes:
       - datos:/app/data
@@ -48,8 +90,6 @@ services:
           find /app/data/gui -mindepth 1 -maxdepth 1 -type d -mmin +${TIC_TTL_MIN:-120} -exec rm -rf {} +
           sleep 600
         done
-    logging: *logs
-    restart: unless-stopped
 
 volumes:
   datos:
